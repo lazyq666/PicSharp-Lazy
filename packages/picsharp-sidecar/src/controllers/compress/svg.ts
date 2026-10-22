@@ -19,6 +19,7 @@ const OptionsSchema = z
       .optional()
       .default({}),
     temp_dir: z.string().optional(),
+    watch_version: z.string().optional(),
   })
   .optional()
   .default({});

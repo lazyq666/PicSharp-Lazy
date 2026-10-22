@@ -1,15 +1,18 @@
 mod engine;
+mod previews;
+mod retention;
 #[cfg(test)]
 mod tests;
 use engine::{Cancel, Engine, MediaInfo, Output, Preset, Progress};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
+    time::{Duration, Instant},
 };
 use tauri::{Emitter, Manager};
 
@@ -41,7 +44,9 @@ pub struct VideoService {
     root: PathBuf,
     data: Mutex<Data>,
     queue: tokio::sync::Mutex<()>,
-    probes: tokio::sync::Semaphore,
+    media_slots: tokio::sync::Semaphore,
+    previews: previews::Previews,
+    last_cleanup: Mutex<Option<Instant>>,
     pub exiting: AtomicBool,
 }
 impl VideoService {
@@ -68,21 +73,78 @@ impl VideoService {
                 }
             }
         }
-        Self {
+        // Migrate existing output protection before bounding the visible history.
+        for job in &mut jobs {
+            if let Some(output) = &mut job.output {
+                output.stamp = retention::restore_output(
+                    &root,
+                    &output.path,
+                    output.bytes,
+                    output.stamp.as_ref(),
+                    !output.protection_checked,
+                );
+                output.protection_checked = true;
+            }
+        }
+        let service = Self {
             root,
             data: Mutex::new(Data {
                 jobs,
                 controls: HashMap::new(),
             }),
             queue: tokio::sync::Mutex::new(()),
-            probes: tokio::sync::Semaphore::new(2),
+            media_slots: tokio::sync::Semaphore::new(2),
+            previews: previews::Previews::default(),
+            last_cleanup: Mutex::new(None),
             exiting: AtomicBool::new(false),
+        };
+        if let Err(error) = service.save(&mut service.data.lock().unwrap()) {
+            log::warn!("Video history: {error}");
         }
+        // Partial previews from an interrupted previous run have no live owner.
+        retention::clean_cache(
+            &service.root.join("thumbnails"),
+            &retention::CachePolicy {
+                extension: "part",
+                count: 0,
+                bytes: 0,
+                age: Duration::ZERO,
+            },
+            &HashSet::new(),
+        );
+        service.clean_cache();
+        service
     }
-    fn save(&self, data: &Data) -> Result<(), String> {
+    fn prune_history(&self, data: &mut Data) {
+        let mut retained = Vec::new();
+        let mut recent = 0;
+        for job in std::mem::take(&mut data.jobs).into_iter().rev() {
+            if data.controls.contains_key(&job.id) {
+                retained.push(job);
+            } else if recent < retention::HISTORY_LIMIT {
+                recent += 1;
+                retained.push(job);
+            } else if let Some(output) = &job.output {
+                // If persistence failed, keep the fallback record rather than allowing
+                // a generated output to be imported again after history eviction.
+                if let Some(stamp) = &output.stamp {
+                    if stamp.unchanged(&output.path)
+                        && !retention::is_output_stamp(&self.root, stamp)
+                        && retention::save_stamp(&self.root, stamp).is_err()
+                    {
+                        retained.push(job);
+                    }
+                }
+            }
+        }
+        retained.reverse();
+        data.jobs = retained;
+    }
+    fn save(&self, data: &mut Data) -> Result<(), String> {
+        self.prune_history(data);
         std::fs::create_dir_all(&self.root).map_err(|e| e.to_string())?;
         let temp = self.root.join("jobs.json.tmp");
-        let bytes = serde_json::to_vec_pretty(&data.jobs).map_err(|e| e.to_string())?;
+        let bytes = serde_json::to_vec(&data.jobs).map_err(|e| e.to_string())?;
         std::fs::write(&temp, bytes).map_err(|e| e.to_string())?;
         std::fs::rename(temp, self.root.join("jobs.json")).map_err(|e| e.to_string())
     }
@@ -98,7 +160,7 @@ impl VideoService {
             change(job);
             let _ = app.emit("video-job", job.clone());
             if persist {
-                if let Err(e) = self.save(&data) {
+                if let Err(e) = self.save(&mut data) {
                     log::error!("Video history: {e}");
                 }
             }
@@ -108,9 +170,55 @@ impl VideoService {
         for cancel in self.data.lock().unwrap().controls.values() {
             cancel.store(true, Ordering::SeqCst);
         }
+        self.previews.cancel_all();
     }
     pub fn idle(&self) -> bool {
-        self.data.lock().unwrap().controls.is_empty()
+        self.data.lock().unwrap().controls.is_empty() && self.previews.idle()
+    }
+    async fn media_permit(
+        &self,
+        count: u32,
+        cancel: &Cancel,
+    ) -> Result<tokio::sync::SemaphorePermit<'_>, String> {
+        tokio::select! {
+            _ = engine::cancelled(cancel) => Err(engine::CANCELLED.into()),
+            permit = self.media_slots.acquire_many(count) => permit.map_err(|e| e.to_string()),
+        }
+    }
+    fn clean_cache(&self) {
+        self.previews.clean_unused();
+        let mut last = self.last_cleanup.lock().unwrap();
+        if last.is_some_and(|time| time.elapsed() < Duration::from_secs(60)) {
+            return;
+        }
+        *last = Some(Instant::now());
+        let protected: HashSet<_> = self
+            .data
+            .lock()
+            .unwrap()
+            .controls
+            .keys()
+            .map(|id| self.root.join("logs").join(format!("{id}.log")))
+            .collect();
+        retention::clean_cache(&self.root.join("logs"), &retention::LOGS, &protected);
+        retention::clean_cache(
+            &self.root.join("thumbnails"),
+            &retention::THUMBNAILS,
+            &HashSet::new(),
+        );
+    }
+    pub fn start_maintenance(self: &Arc<Self>) {
+        let weak = Arc::downgrade(self);
+        tauri::async_runtime::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(60)).await;
+                let Some(service) = weak.upgrade() else { break };
+                if service.exiting.load(Ordering::SeqCst) {
+                    break;
+                }
+                let _ = tokio::task::spawn_blocking(move || service.clean_cache()).await;
+            }
+        });
     }
 }
 
@@ -160,17 +268,32 @@ pub struct Preview {
     thumbnail: Option<PathBuf>,
 }
 #[tauri::command]
+pub fn ipc_prepare_video_preview(
+    state: tauri::State<'_, Arc<VideoService>>,
+) -> Result<String, String> {
+    if state.exiting.load(Ordering::SeqCst) {
+        return Err(engine::CANCELLED.into());
+    }
+    Ok(state.previews.prepare())
+}
+#[tauri::command]
+pub fn ipc_cancel_video_preview(request_id: String, state: tauri::State<'_, Arc<VideoService>>) {
+    state.previews.cancel(&request_id);
+}
+#[tauri::command]
 pub async fn ipc_video_preview(
     app: tauri::AppHandle,
     path: String,
+    request_id: String,
     state: tauri::State<'_, Arc<VideoService>>,
 ) -> Result<Preview, String> {
-    let _permit = state.probes.acquire().await.map_err(|e| e.to_string())?;
+    let request = state.previews.start(&request_id)?;
+    let cancel = &request.cancel;
+    let _permit = state.media_permit(1, cancel).await?;
     let engine = discover(&app)?;
     let path = dunce::canonicalize(path).map_err(|e| e.to_string())?;
     validate_extension(&path)?;
-    let cancel = Arc::new(AtomicBool::new(false));
-    let info = engine.inspect(&path, &cancel).await?;
+    let info = engine.inspect(&path, cancel).await?;
     let cache = state.root.join("thumbnails");
     std::fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
     // Stable key avoids accumulating another thumbnail every time history is opened.
@@ -182,18 +305,31 @@ pub async fn ipc_video_preview(
         md.modified().ok().hash(&mut hash);
     }
     let thumbnail = cache.join(format!("{:x}.jpg", hash.finish()));
+    let temporary = engine::TempFile(cache.join(format!(".preview-{request_id}.part")));
+    let cached = std::fs::OpenOptions::new()
+        .write(true)
+        .open(&thumbnail)
+        .and_then(|file| file.set_modified(std::time::SystemTime::now()))
+        .is_ok();
     let thumbnail = if info.hdr {
         None
-    } else if thumbnail.is_file()
-        || engine
-            .thumbnail(&path, &info, &thumbnail, &cancel)
-            .await
-            .is_ok()
+    } else if cached {
+        Some(thumbnail)
+    } else if engine
+        .thumbnail(&path, &info, &temporary.0, cancel)
+        .await
+        .is_ok()
+        && !cancel.load(Ordering::SeqCst)
     {
+        std::fs::rename(&temporary.0, &thumbnail).map_err(|e| e.to_string())?;
         Some(thumbnail)
     } else {
         None
     };
+    if cancel.load(Ordering::SeqCst) {
+        return Err(engine::CANCELLED.into());
+    }
+    state.clean_cache();
     Ok(Preview { info, thumbnail })
 }
 fn validate_extension(path: &Path) -> Result<(), String> {
@@ -214,6 +350,7 @@ pub async fn ipc_compress_video(
     path: String,
     preset: Preset,
     directory: Option<String>,
+    watch_version: Option<String>,
     state: tauri::State<'_, Arc<VideoService>>,
 ) -> Result<Output, String> {
     if state.exiting.load(Ordering::SeqCst) {
@@ -221,6 +358,7 @@ pub async fn ipc_compress_video(
     }
     let path = dunce::canonicalize(path).map_err(|e| format!("无法读取视频：{e}"))?;
     validate_extension(&path)?;
+    check_watch_input(&state, &path, watch_version.as_deref())?;
     let directory = directory
         .filter(|d| !d.trim().is_empty())
         .map(PathBuf::from)
@@ -256,7 +394,7 @@ pub async fn ipc_compress_video(
         data.jobs.retain(|j| j.path != path);
         data.jobs.push(job.clone());
         state
-            .save(&data)
+            .save(&mut data)
             .map_err(|e| format!("无法保存视频任务记录：{e}"))?;
         data.controls.insert(id.clone(), cancel.clone());
         let _ = app.emit("video-job", job);
@@ -269,6 +407,12 @@ pub async fn ipc_compress_video(
         if cancel.load(Ordering::SeqCst) {
             return Err(engine::CANCELLED.into());
         }
+        // Encoding takes both slots; previews may run two at a time only while no
+        // encoder is running. Cancelled waiters leave the semaphore queue immediately.
+        let _media = state.media_permit(2, &cancel).await?;
+        // A job may have waited behind a long encode. Recheck its exact version
+        // here, not just when its file-system event first arrived.
+        check_watch_input(&state, &path, watch_version.as_deref())?;
         state.update(&app, &id, true, |j| j.status = "processing".into());
         let engine = discover(&app)?;
         let info = engine.inspect(&path, &cancel).await?;
@@ -288,7 +432,14 @@ pub async fn ipc_compress_video(
             .await
     }
     .await;
-    state.update(&app, &id, true, |j| match &result {
+    if let Ok(output) = &result {
+        if let Some(stamp) = &output.stamp {
+            if let Err(error) = retention::save_stamp(&state.root, stamp) {
+                log::warn!("Video output record: {error}");
+            }
+        }
+    }
+    state.update(&app, &id, false, |j| match &result {
         Ok(output) => {
             j.status = "completed".into();
             j.output = Some(output.clone());
@@ -296,7 +447,7 @@ pub async fn ipc_compress_video(
             j.progress.remaining = Some(0.0);
         }
         Err(error) => {
-            j.status = if cancel.load(Ordering::SeqCst) {
+            j.status = if cancel.load(Ordering::SeqCst) || error == WATCH_INPUT_CHANGED {
                 "cancelled"
             } else {
                 "failed"
@@ -306,7 +457,14 @@ pub async fn ipc_compress_video(
             j.progress = Progress::default();
         }
     });
-    state.data.lock().unwrap().controls.remove(&id);
+    {
+        let mut data = state.data.lock().unwrap();
+        data.controls.remove(&id);
+        if let Err(error) = state.save(&mut data) {
+            log::error!("Video history: {error}");
+        }
+    }
+    state.clean_cache();
     result
 }
 #[tauri::command]
@@ -322,6 +480,73 @@ pub fn ipc_cancel_video(path: String, state: tauri::State<'_, Arc<VideoService>>
 #[tauri::command]
 pub fn ipc_video_history(state: tauri::State<'_, Arc<VideoService>>) -> Vec<Job> {
     state.data.lock().unwrap().jobs.clone()
+}
+
+#[tauri::command]
+pub async fn ipc_filter_video_inputs(
+    paths: Vec<String>,
+    state: tauri::State<'_, Arc<VideoService>>,
+) -> Result<Vec<String>, String> {
+    let root = state.root.clone();
+    let fallback: Vec<_> = state
+        .data
+        .lock()
+        .unwrap()
+        .jobs
+        .iter()
+        .filter_map(|job| job.output.as_ref().and_then(|output| output.stamp.clone()))
+        .collect();
+    tokio::task::spawn_blocking(move || filter_video_inputs(paths, &root, &fallback))
+        .await
+        .map_err(|error| error.to_string())
+}
+
+fn filter_video_inputs(
+    paths: Vec<String>,
+    root: &Path,
+    fallback: &[retention::OutputStamp],
+) -> Vec<String> {
+    let fallback: HashMap<_, _> = fallback.iter().map(|stamp| (&stamp.path, stamp)).collect();
+    paths
+        .into_iter()
+        .filter(|path| {
+            let path = Path::new(path);
+            if !path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("mp4"))
+            {
+                return true;
+            }
+            let Ok(current) = retention::stamp(path) else {
+                return false;
+            };
+            fallback
+                .get(&current.path)
+                .is_none_or(|saved| **saved != current)
+                && !retention::is_output_stamp(root, &current)
+        })
+        .collect()
+}
+
+const WATCH_INPUT_CHANGED: &str = "PICSHARP_WATCH_INPUT_CHANGED";
+fn check_watch_input(
+    state: &VideoService,
+    path: &Path,
+    version: Option<&str>,
+) -> Result<(), String> {
+    let Some(version) = version else {
+        return Ok(());
+    };
+    let current = retention::stamp(path).map_err(|_| WATCH_INPUT_CHANGED.to_string())?;
+    let generated = retention::is_output_stamp(&state.root, &current)
+        || state.data.lock().unwrap().jobs.iter().any(|job| {
+            job.output.as_ref().and_then(|output| output.stamp.as_ref()) == Some(&current)
+        });
+    if current.version.as_deref() != Some(version) || generated {
+        return Err(WATCH_INPUT_CHANGED.into());
+    }
+    Ok(())
 }
 
 pub fn is_video_extension(ext: &str) -> bool {
@@ -366,5 +591,5 @@ pub fn ipc_register_videos(
             error: None,
         });
     }
-    state.save(&data)
+    state.save(&mut data)
 }

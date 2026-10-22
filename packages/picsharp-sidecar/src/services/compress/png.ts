@@ -13,6 +13,7 @@ import { isValidArray, isWindows } from '../../utils';
 import { SaveMode, WatermarkType } from '../../constants';
 import { losslessCompressPng, PNGLosslessOptions } from '@napi-rs/image';
 import { processImage, applyImageTransformations, applyImageConversion } from './utils';
+import { imageOutputRecords, assertWatchInput } from '../output-records';
 
 export async function processPngLossy(payload: {
   input_path: string;
@@ -46,6 +47,7 @@ export async function processPngLossless(payload: {
   let originalMetadata: Metadata | undefined;
   try {
     const { input_path, options, process_options } = payload;
+    await assertWatchInput(input_path, options.watch_version);
     originalSize = await getFileSize(input_path);
     if (isWindows && options.save.mode === SaveMode.Overwrite) {
       sharp.cache(false);
@@ -86,10 +88,16 @@ export async function processPngLossless(payload: {
       const availableCompressRate = compressionRate >= (options.limit_compress_rate || 0);
       const originalEctypePath = await copyFileToTemp(input_path, options.temp_dir);
       if (availableCompressRate) {
-        await writeFile(outputPath, optimizedImageBuffer);
+        await imageOutputRecords().publish(
+          outputPath,
+          (temporary) => writeFile(temporary, optimizedImageBuffer),
+          input_path === outputPath ? options.watch_version : undefined,
+        );
       } else {
         if (input_path !== outputPath) {
-          await copyFile(input_path, outputPath);
+          await imageOutputRecords().publish(outputPath, (temporary) =>
+            copyFile(input_path, temporary),
+          );
         }
       }
       return {
@@ -111,10 +119,16 @@ export async function processPngLossless(payload: {
       const availableCompressRate = compressionRate >= (options.limit_compress_rate || 0);
       const originalEctypePath = await copyFileToTemp(input_path, options.temp_dir);
       if (availableCompressRate) {
-        await writeFile(outputPath, optimizedImageBuffer);
+        await imageOutputRecords().publish(
+          outputPath,
+          (temporary) => writeFile(temporary, optimizedImageBuffer),
+          input_path === outputPath ? options.watch_version : undefined,
+        );
       } else {
         if (input_path !== outputPath) {
-          await copyFile(input_path, outputPath);
+          await imageOutputRecords().publish(outputPath, (temporary) =>
+            copyFile(input_path, temporary),
+          );
         }
       }
       const convert_results: any[] = await applyImageConversion(

@@ -10,6 +10,7 @@ import { processTinyPng } from '../services/compress/tinypng';
 import { getRawPixels, toBase64 } from '../services/codec';
 import { generateThumbnail } from '../services/image-viewer';
 import { CompressError } from '../extends/CompressError';
+import { assertWatchInput, isWatchInputChanged } from '../services/output-records';
 
 if (!parentPort) {
   throw new Error('dispatcher must run in worker_threads');
@@ -19,6 +20,7 @@ parentPort.on('message', async (msg: { requestId: string; type: string; payload:
   const { requestId, type, payload } = msg || {};
   if (!requestId) return;
   try {
+    await assertWatchInput(payload.input_path, payload.options?.watch_version);
     let result: any = null;
     if (type === 'png') {
       result = await processPngLossy(payload);
@@ -50,6 +52,14 @@ parentPort.on('message', async (msg: { requestId: string; type: string; payload:
     result._threadId = threadId;
     parentPort!.postMessage({ requestId, type: 'result', data: result });
   } catch (error: any | CompressError) {
+    if (isWatchInputChanged(error)) {
+      parentPort!.postMessage({
+        requestId,
+        type: 'result',
+        data: { input_path: payload.input_path, skipped: true },
+      });
+      return;
+    }
     parentPort!.postMessage({
       requestId,
       error,

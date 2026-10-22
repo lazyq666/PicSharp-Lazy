@@ -59,6 +59,7 @@ export namespace ICompressor {
   }
 
   export interface ResultItem {
+    skipped?: boolean;
     input_path: string;
     input_size: number;
     output_path: string;
@@ -522,6 +523,7 @@ const GIF_COMPRESSION_LEVEL_PRESET: Record<
   },
 };
 export default class Compressor {
+  private watchVersions = new Map<string, string>();
   private options: ICompressor.Options;
   private handlers: Record<
     ICompressor.CompressType,
@@ -595,6 +597,9 @@ export default class Compressor {
     onFulfilled?: (res: ICompressor.ResultItem) => void,
     onRejected?: (res: ICompressor.FailedItem) => void,
   ): Promise<ICompressor.ResultItem[]> => {
+    this.watchVersions = new Map(
+      files.filter((file) => file.watchVersion).map((file) => [file.path, file.watchVersion]),
+    );
     const videoTasks = files
       .filter((file) => file.mediaType === 'video')
       .map(async (file) => {
@@ -642,6 +647,7 @@ export default class Compressor {
                 new_folder_path: this.options.save.newFolderPath,
               },
               temp_dir: this.options.tempDir,
+              watch_version: this.watchVersions.get(payload.input_path),
               convert_enable: this.options.convertEnable,
               convert_types: this.options.convertTypes,
               convert_alpha: this.options.convertAlpha,

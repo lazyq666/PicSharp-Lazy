@@ -1,94 +1,80 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import { createMediaEvents, isMedia, isVideoOutput } from './media';
-import { jsonBigInt } from '../../utils';
-import { watch, Event } from 'dirspy';
+import { z } from 'zod';
+import { createMediaEvents, isMedia, isVideo } from './media';
+import { watchMediaFiles } from './files';
+import { readFileVersion } from '../../services/file-version';
+import { imageOutputRecords } from '../../services/output-records';
 
 const app = new Hono();
 let id = BigInt(0);
 
+const candidatesSchema = z.array(z.object({ path: z.string(), version: z.string() })).max(4096);
+app.post('/filter-inputs', async (c) => {
+  const candidates = candidatesSchema.parse(await c.req.json());
+  const inputs = [];
+  const outputs = imageOutputRecords();
+  for (const candidate of candidates) {
+    if (!isMedia(candidate.path)) continue;
+    const eligible = isVideo(candidate.path)
+      ? (await readFileVersion(candidate.path)) === candidate.version
+      : await outputs.isInput(candidate);
+    if (eligible) inputs.push(candidate);
+  }
+  return c.json(inputs);
+});
+
 app.post('/new-images', (c) => {
   return streamSSE(c, async (stream) => {
+    let abort = false;
+    let watcher: ReturnType<typeof watchMediaFiles> | undefined;
+    let mediaEvents: ReturnType<typeof createMediaEvents> | undefined;
+    const cleanup = () => {
+      abort = true;
+      mediaEvents?.close();
+      watcher?.close();
+    };
+    const send = (event: string, data = '') =>
+      stream.writeSSE({ data, event, id: (++id).toString() }).catch(cleanup);
+    stream.onAbort(cleanup);
     try {
       const { path, ignores = [] } = await c.req.json<{ path: string; ignores: string[] }>();
-      let ready = false;
-      let abort = false;
-      const mediaEvents = createMediaEvents((payload) => {
-        if (!abort)
-          void stream
-            .writeSSE({
-              data: JSON.stringify(payload, jsonBigInt),
-              event: 'add',
-              id: (++id).toString(),
-            })
-            .catch(() => {
-              mediaEvents.close();
-            });
-      });
-      const watcher = await watch(path, {
-        ignore(path) {
-          // Do not filter directories by extension: newly created subfolders must be watched.
-          return ignores.some((ignore) => path.includes(ignore)) || isVideoOutput(path);
+      mediaEvents = createMediaEvents(
+        (payload) => {
+          if (!abort) void send('add', JSON.stringify(payload));
         },
-        fileFilter: (entry) => {
-          if (ignores.some((ignore) => entry.fullPath.includes(ignore))) return false;
-          return isMedia(entry.path);
+        3000,
+        750,
+        4096,
+        imageOutputRecords(),
+        (error) => {
+          if (!abort) void send('fault', error.message);
         },
-        directoryFilter: (entry) => {
-          return !ignores.includes(entry.basename);
+      );
+      watcher = watchMediaFiles(
+        path,
+        ignores,
+        mediaEvents,
+        (error) => {
+          if (!abort) void send('fault', error.message);
         },
-      });
-      stream.onAbort(() => {
-        console.log(`Watch <${path}> aborted`);
-        mediaEvents.close();
-        watcher.close();
-        stream.close();
-        abort = true;
-      });
-      while (true) {
-        if (abort) break;
-        if (!ready) {
-          ready = true;
-          watcher.on(Event.READY, () => {
-            stream.writeSSE({
-              data: '',
-              event: 'ready',
-              id: (++id).toString(),
-            });
-            watcher
-              .on(Event.ADD, (payload) => mediaEvents.add({ ...payload }))
-              .on(Event.CHANGE, (_oldPayload, newPayload) => mediaEvents.add({ ...newPayload }))
-              .on(Event.SELF_ENOENT, () => {
-                mediaEvents.close();
-                stream.writeSSE({
-                  data: '',
-                  event: 'self-enoent',
-                  id: (++id).toString(),
-                });
-              })
-              .on(Event.ERROR, (error) => {
-                stream.writeSSE({
-                  data: error.toString(),
-                  event: 'fault',
-                  id: (++id).toString(),
-                });
-              });
-          });
-        }
+        () => {
+          void send('self-enoent');
+          cleanup();
+        },
+      );
+      await watcher.ready;
+      if (abort) return;
+      await send('ready');
+      while (!abort) {
         await stream.sleep(1000 * 10);
-        await stream.writeSSE({
-          data: '',
-          event: 'ping',
-          id: (++id).toString(),
-        });
+        if (!abort) await send('ping');
       }
     } catch (error: any) {
-      await stream.writeSSE({
-        data: error.toString(),
-        event: 'abort',
-        id: (++id).toString(),
-      });
+      if (!abort) await send('abort', error.toString());
       stream.close();
+    } finally {
+      cleanup();
     }
   });
 });

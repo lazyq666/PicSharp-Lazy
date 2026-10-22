@@ -70,6 +70,7 @@ export enum SettingsKey {
   CompressionWatermarkImageOpacity = 'compression_watermark_image_opacity',
   CompressionWatermarkImageScale = 'compression_watermark_image_scale',
   CompressionWatchFileIgnore = 'compression_watch_file_ignore',
+  CompressionWatchIgnoreNinePatch = 'compression_watch_ignore_nine_patch',
   TinypngApiKeys = 'tinypng_api_keys',
   TinypngPreserveMetadata = 'tinypng_preserve_metadata',
 }

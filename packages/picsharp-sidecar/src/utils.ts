@@ -53,10 +53,7 @@ export const convertFileSrc = (path: string) => {
 };
 
 export const createTempFilePath = (targetPath: string, tempDir: string = os.tmpdir()) => {
-  return path.join(
-    tempDir,
-    `${path.basename(targetPath, path.extname(targetPath))}_${nanoid()}${path.extname(targetPath)}`,
-  );
+  return path.join(tempDir, `.picsharp-image-${nanoid()}${path.extname(targetPath)}`);
 };
 
 export const copyFileToTemp = async (targetPath: string, tempDir: string = os.tmpdir()) => {
@@ -259,8 +256,7 @@ export class CompressError extends Error {
 
 export function createOutputPathTempPath(inputPath: string) {
   const dir = path.dirname(inputPath);
-  const base = path.basename(inputPath);
-  const tempPath = path.join(dir, `.${nanoid()}_${base}`);
+  const tempPath = path.join(dir, `.picsharp-image-${nanoid()}${path.extname(inputPath)}`);
   return tempPath;
 }
 

@@ -20,6 +20,7 @@ import sharp, { Metadata } from 'sharp';
 import { addTextWatermark, addImageWatermark } from '../watermark';
 import { SaveMode, WatermarkType } from '../../constants';
 import { applyImageConversion } from './utils';
+import { imageOutputRecords, assertWatchInput } from '../output-records';
 
 export interface ImageTaskPayload {
   input_path: string;
@@ -157,11 +158,14 @@ async function downloadAndProcessImage(
     options.convert_alpha,
   );
 
-  if (hasTransformations) {
-    await pipeline(transformer, createWriteStream(outputPath));
-  } else {
-    await copyFile(entryFilePath, outputPath);
-  }
+  await imageOutputRecords().publish(
+    outputPath,
+    async (temporary) => {
+      if (hasTransformations) await pipeline(transformer, createWriteStream(temporary));
+      else await copyFile(entryFilePath, temporary);
+    },
+    inputPath === outputPath ? options.watch_version : undefined,
+  );
 
   return convert_results;
 }
@@ -172,6 +176,7 @@ export async function processTinyPng(payload: ImageTaskPayload) {
   let tinypngResult: TinifyResult | undefined;
   try {
     const { input_path, options, process_options } = payload;
+    await assertWatchInput(input_path, options.watch_version);
     if (isWindows && options.save.mode === SaveMode.Overwrite) {
       sharp.cache(false);
     }
@@ -214,7 +219,7 @@ export async function processTinyPng(payload: ImageTaskPayload) {
         : 0,
       original_temp_path: originalTempPath,
       available_compress_rate: availableCompressRate,
-      hash: await hashFile(input_path),
+      hash: await hashFile(newOutputPath),
       debug: {
         compressionRate: compressRatio,
         options,

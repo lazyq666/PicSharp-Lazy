@@ -18,6 +18,7 @@ declare global {
   }
 
   interface FileInfo {
+    watchVersion?: string;
     mediaType?: 'image' | 'video';
     videoInfo?: import('../utils/video').VideoInfo;
     videoThumbnail?: string;

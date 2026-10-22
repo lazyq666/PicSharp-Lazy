@@ -2,6 +2,7 @@ import { Sharp } from 'sharp';
 import { ConvertFormat } from '../constants';
 import path from 'node:path';
 import { captureError } from '../utils';
+import { imageOutputRecords } from './output-records';
 
 export async function convert(
   stream: Sharp,
@@ -10,23 +11,20 @@ export async function convert(
   alpha: string,
 ) {
   try {
-    let result = null;
-    switch (format) {
-      case ConvertFormat.PNG:
-        result = await stream.png().toFile(outputPath);
-        break;
-      case ConvertFormat.JPG:
-        result = await stream.flatten({ background: alpha }).jpeg().toFile(outputPath);
-        break;
-      case ConvertFormat.WEBP:
-        result = await stream.webp().toFile(outputPath);
-        break;
-      case ConvertFormat.AVIF:
-        result = await stream.avif().toFile(outputPath);
-        break;
-      default:
-        throw new Error(`Unsupported convert format: ${format}`);
-    }
+    const result = await imageOutputRecords().publish(outputPath, async (temporary) => {
+      switch (format) {
+        case ConvertFormat.PNG:
+          return stream.png().toFile(temporary);
+        case ConvertFormat.JPG:
+          return stream.flatten({ background: alpha }).jpeg().toFile(temporary);
+        case ConvertFormat.WEBP:
+          return stream.webp().toFile(temporary);
+        case ConvertFormat.AVIF:
+          return stream.avif().toFile(temporary);
+        default:
+          throw new Error(`Unsupported convert format: ${format}`);
+      }
+    });
     return {
       success: true,
       output_path: outputPath,

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, appendFile, rm } from 'node:fs/promises';
+import { realpath, mkdtemp, mkdir, writeFile, appendFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -9,7 +9,7 @@ test(
   'live watch imports nested mixed media after video copies finish, excluding outputs',
   { skip: !process.env.PICSHARP_TEST_SIDECAR_URL, timeout: 20000 },
   async () => {
-    const folder = await mkdtemp(join(tmpdir(), 'picsharp-live-watch-'));
+    const folder = await realpath(await mkdtemp(join(tmpdir(), 'picsharp-live-watch-')));
     const controller = new AbortController();
     const events: { event: string; data: string }[] = [];
     let reading: Promise<void> | undefined;

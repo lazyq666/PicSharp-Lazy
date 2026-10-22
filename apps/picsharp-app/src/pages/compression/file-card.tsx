@@ -9,7 +9,7 @@ import { useI18n } from '@/i18n';
 import { useUpdate } from 'ahooks';
 import { exists } from '@tauri-apps/plugin-fs';
 import { getOSPlatform, isValidArray } from '@/utils';
-import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { RefreshCw, Ellipsis, Film, X, Play } from 'lucide-react';
 import { calImageWindowSize, spawnWindow, createWebviewWindow } from '@/utils/window';
 import { WebviewWindow, getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
@@ -29,7 +29,7 @@ import { copyImage } from '@/utils/clipboard';
 import ImgTag from '@/components/img-tag';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { cancelVideo, compressVideo, videoTime, VideoInfo } from '@/utils/video';
+import { cancelVideo, compressVideo, videoTime, requestVideoPreview } from '@/utils/video';
 export interface FileCardProps {
   path: FileInfo['path'];
 }
@@ -41,6 +41,7 @@ function FileCard(props: FileCardProps) {
   const { eventEmitter, fileMap } = useCompressionStore(useSelector(['eventEmitter', 'fileMap']));
   const file = fileMap.get(path);
   const imgRef = useRef<ImageViewerRef>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const { messageApi } = useContext(AppContext);
   const { sidecar } = useAppStore(useSelector(['sidecar']));
 
@@ -282,26 +283,57 @@ function FileCard(props: FileCardProps) {
   }, [path]);
 
   useEffect(() => {
-    if (file?.mediaType !== 'video' || file.videoThumbnail) return;
+    if (file?.mediaType !== 'video' || file.videoThumbnail || !cardRef.current) return;
     let active = true;
-    invoke<{ info: VideoInfo; thumbnail?: string }>('ipc_video_preview', { path })
-      .then((preview) => {
-        file.videoInfo = preview.info;
-        file.videoThumbnail = preview.thumbnail ? convertFileSrc(preview.thumbnail) : '';
-        if (active) update();
-      })
-      .catch(() => {
-        /* The compression task reports actionable read errors. */
-      });
+    let loaded = false;
+    let request: ReturnType<typeof requestVideoPreview> | undefined;
+    let nearby = false;
+    const refreshPreview = () => {
+      if (!nearby || document.visibilityState !== 'visible') {
+        request?.cancel();
+        request = undefined;
+        return;
+      }
+      if (request || loaded) return;
+      const current = requestVideoPreview(path);
+      request = current;
+      current.promise
+        .then((preview) => {
+          if (!active || request !== current || !preview) return;
+          loaded = true;
+          file.videoInfo = preview.info;
+          file.videoThumbnail = preview.thumbnail ? convertFileSrc(preview.thumbnail) : '';
+          update();
+        })
+        .catch(() => {
+          /* The compression task reports actionable read errors. */
+        });
+    };
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        nearby = entry.isIntersecting;
+        refreshPreview();
+      },
+      { rootMargin: '200px' },
+    );
+    document.addEventListener('visibilitychange', refreshPreview);
+    observer.observe(cardRef.current);
     return () => {
       active = false;
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', refreshPreview);
+      request?.cancel();
     };
-  }, [path, file?.mediaType]);
+  }, [path, file]);
 
   if (!file) return null;
 
+  const formattedCompressRate =
+    file.compressRate && `${Math.round(Number.parseFloat(file.compressRate))}%`;
+
   return (
     <div
+      ref={cardRef}
       className='bg-background group relative rounded-lg border transition-all duration-300 hover:shadow-lg dark:border-neutral-700'
       onContextMenu={fileContextMenuHandler}
     >
@@ -408,8 +440,8 @@ function FileCard(props: FileCardProps) {
                 )}
               >
                 {file.compressedBytesSize <= file.bytesSize
-                  ? `-${file.compressRate}`
-                  : `+${file.compressRate}`}
+                  ? `-${formattedCompressRate}`
+                  : `+${formattedCompressRate}`}
               </span>
             </div>
           ) : (

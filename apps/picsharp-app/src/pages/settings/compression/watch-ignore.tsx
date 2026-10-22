@@ -4,36 +4,50 @@ import useSettingsStore from '@/store/settings';
 import useSelector from '@/hooks/useSelector';
 import { SettingsKey } from '@/constants';
 import SettingItem from '../setting-item';
-import { Textarea } from '@/components/ui/textarea';
-import { debounce } from 'radash';
+import { Switch } from '@/components/ui/switch';
 import { PathTagsInput } from '@/components/path-tags-input';
 
-function SettingsCompressionConvert() {
+function SettingsCompressionWatchIgnore() {
   const t = useI18n();
-  const { compression_watch_file_ignore: ignores = [], set } = useSettingsStore(
-    useSelector([SettingsKey.CompressionWatchFileIgnore, 'set']),
+  const {
+    compression_watch_file_ignore: ignores = [],
+    compression_watch_ignore_nine_patch: ignoreNinePatch = true,
+    set,
+  } = useSettingsStore(
+    useSelector([
+      SettingsKey.CompressionWatchFileIgnore,
+      SettingsKey.CompressionWatchIgnoreNinePatch,
+      'set',
+    ]),
   );
 
   return (
-    <SettingItem
-      title={
-        <>
-          <span>{t('settings.compression.file_ignore.title')}</span>
-        </>
-      }
-      titleClassName='flex flex-row items-center gap-x-2'
-      description={t('settings.compression.file_ignore.description')}
-    >
-      <PathTagsInput
+    <>
+      <SettingItem
+        title={t('settings.compression.ignore_nine_patch.title')}
+        description={t('settings.compression.ignore_nine_patch.description')}
+      >
+        <Switch
+          aria-label={t('settings.compression.ignore_nine_patch.title')}
+          checked={ignoreNinePatch}
+          onCheckedChange={(checked) => set(SettingsKey.CompressionWatchIgnoreNinePatch, checked)}
+        />
+      </SettingItem>
+      <SettingItem
         title={t('settings.compression.file_ignore.title')}
-        value={ignores}
-        onChange={(value) => {
-          set(SettingsKey.CompressionWatchFileIgnore, value);
-        }}
-        className='max-h-[100px] w-[350px] overflow-y-auto'
-      />
-    </SettingItem>
+        description={t('settings.compression.file_ignore.description')}
+      >
+        <PathTagsInput
+          title={t('settings.compression.file_ignore.title')}
+          value={ignores}
+          onChange={(value) => {
+            set(SettingsKey.CompressionWatchFileIgnore, value);
+          }}
+          className='max-h-[100px] w-[350px] overflow-y-auto'
+        />
+      </SettingItem>
+    </>
   );
 }
 
-export default memo(SettingsCompressionConvert);
+export default memo(SettingsCompressionWatchIgnore);

@@ -12,6 +12,7 @@ import {
 } from '../../utils';
 import sharp, { Metadata } from 'sharp';
 import { SaveMode } from '../../constants';
+import { imageOutputRecords, assertWatchInput } from '../output-records';
 
 export interface SvgTaskPayload {
   input_path: string;
@@ -28,6 +29,7 @@ export async function processSvg(payload: SvgTaskPayload) {
   let originalMetadata: Metadata | undefined;
   try {
     const { input_path, options } = payload;
+    await assertWatchInput(input_path, options.watch_version);
     const originalContent = await readFile(input_path, 'utf-8');
     if (isWindows && options.save.mode === SaveMode.Overwrite) {
       sharp.cache(false);
@@ -44,9 +46,15 @@ export async function processSvg(payload: SvgTaskPayload) {
     });
     const tempFilePath = await copyFileToTemp(input_path, options.temp_dir);
     if (availableCompressRate) {
-      await writeFile(newOutputPath, optimizedContent.data, 'utf-8');
-    } else {
-      await copyFile(input_path, newOutputPath);
+      await imageOutputRecords().publish(
+        newOutputPath,
+        (temporary) => writeFile(temporary, optimizedContent.data, 'utf-8'),
+        input_path === newOutputPath ? options.watch_version : undefined,
+      );
+    } else if (input_path !== newOutputPath) {
+      await imageOutputRecords().publish(newOutputPath, (temporary) =>
+        copyFile(input_path, temporary),
+      );
     }
     return {
       input_path,

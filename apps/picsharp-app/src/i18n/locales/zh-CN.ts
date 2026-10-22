@@ -170,6 +170,8 @@ export default {
   'settings.compression.resize.fit.option.inside': '内部（Inside）',
   'settings.compression.resize.fit.option.outside': '外部（Outside）',
   // Settings.Compression.FileIgnore
+  'settings.compression.ignore_nine_patch.title': '忽略 .9 图片',
+  'settings.compression.ignore_nine_patch.description': '监控时跳过 button.9.png 这类图片。',
   'settings.compression.file_ignore.title': '忽略文件',
   'settings.compression.file_ignore.description':
     '当监听新增图片时，将会忽略这些文件，多个文件用换行符分隔，支持glob语法',

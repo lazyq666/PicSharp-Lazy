@@ -22,21 +22,30 @@ import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { useReport } from '@/hooks/useReport';
 import { captureError } from '@/utils';
+import { excludeVideoOutputs } from '@/utils/video';
+import { WatchQueue, WatchCandidate, filterWatchInputs } from '@/utils/watch-queue';
 
 function CompressionWatch() {
   const { progressRef } = useContext(CompressionContext);
   const navigate = useNavigate();
-  const queueRef = useRef<string[]>([]);
+  const queueRef = useRef(new WatchQueue());
   const t = useI18n();
   const { messageApi } = useContext(AppContext);
   const isFirstInit = useRef(true);
-  const historys = useRef<Set<string>>(new Set());
   const ctrlRef = useRef<AbortController | null>(null);
   const r = useReport();
   const drainingRef = useRef(false);
   const activeRef = useRef(true);
+  const runningRef = useRef(new Map<string, FileInfo>());
 
   const handleCompress = async (files: FileInfo[]) => {
+    const inputs = new Map(files.map((file) => [file.path, file]));
+    const finish = (path: string) => {
+      if (runningRef.current.get(path) === inputs.get(path)) {
+        runningRef.current.delete(path);
+      }
+      if (activeRef.current) throttledProcessData();
+    };
     let fulfilled = 0;
     let rejected = 0;
     const rejectedList = [];
@@ -123,6 +132,13 @@ function CompressionWatch() {
       }).compress(
         tasks,
         (res) => {
+          finish(res.input_path);
+          if (res.skipped) {
+            const state = useCompressionStore.getState();
+            if (state.fileMap.get(res.input_path) === inputs.get(res.input_path))
+              state.removeFile(res.input_path);
+            return;
+          }
           const targetFile = fileMap.get(res.input_path);
           if (targetFile) {
             fulfilled++;
@@ -146,7 +162,6 @@ function CompressionWatch() {
               ? convertFileSrc(res.original_temp_path)
               : '';
             targetFile.saveType = outputMode;
-            if (res.hash) historys.current.add(res.hash);
             if (isValidArray(res.convert_results)) {
               targetFile.convertResults = res.convert_results;
             }
@@ -161,6 +176,7 @@ function CompressionWatch() {
           eventEmitter.emit('update_file_item', res.input_path);
         },
         (res) => {
+          finish(res.input_path);
           rejected++;
           rejectedList.push(res);
           const targetFile = fileMap.get(res.input_path);
@@ -183,6 +199,7 @@ function CompressionWatch() {
           }
         },
       );
+      if (!fulfilled && !rejected) return;
       messageApi?.success(
         t('tips.compress_completed', {
           fulfilled,
@@ -217,23 +234,39 @@ function CompressionWatch() {
       });
       messageApi?.error(t('common.compress_failed_msg'));
       sendTextNotification(t('common.compress_failed'), t('common.compress_failed_msg'));
+    } finally {
+      for (const file of files) {
+        if (runningRef.current.get(file.path) === file) runningRef.current.delete(file.path);
+      }
+      useCompressionStore.getState().trimWatchHistory();
+      if (activeRef.current) throttledProcessData();
     }
   };
 
   const throttledProcessData = debounce({ delay: 1000 }, async () => {
     if (drainingRef.current) return;
     drainingRef.current = true;
+    let batch: WatchCandidate[] = [];
+    const isBusy = (path: string) =>
+      runningRef.current.has(path) ||
+      useCompressionStore.getState().fileMap.get(path)?.status === ICompressor.Status.Processing;
     try {
-      while (activeRef.current && queueRef.current.length) {
-        const paths = [...new Set(queueRef.current)];
-        queueRef.current = [];
-        const { fileMap } = useCompressionStore.getState();
-        const available = paths.filter(
-          (path) => fileMap.get(path)?.status !== ICompressor.Status.Processing,
+      while (activeRef.current && queueRef.current.hasReady(isBusy)) {
+        batch = queueRef.current.take(isBusy);
+        const { sidecar } = useAppStore.getState();
+        // Read the current preference for each batch so toggling it also affects a live watch.
+        const eligible = await filterWatchInputs(sidecar?.origin, batch, {
+          signal: ctrlRef.current?.signal,
+          ignoreNinePatch: useSettingsStore.getState()[SettingsKey.CompressionWatchIgnoreNinePatch],
+        });
+        const paths = new Set(await excludeVideoOutputs(eligible.map((entry) => entry.path)));
+        if (!activeRef.current) break;
+        const versions = new Map(
+          eligible
+            .filter((entry) => paths.has(entry.path) && !queueRef.current.hasNewer(entry))
+            .map((entry) => [entry.path, entry.version]),
         );
-        const busy = paths.filter((path) => !available.includes(path));
-        queueRef.current.push(...busy);
-        const candidates = await parsePaths(available, VALID_MEDIA_EXTS);
+        const candidates = await parsePaths([...versions.keys()], VALID_MEDIA_EXTS);
         if (!activeRef.current) break;
         if (candidates.length) {
           const { files, setFiles } = useCompressionStore.getState();
@@ -241,17 +274,22 @@ function CompressionWatch() {
           const incoming = new Set(candidates.map((file) => file.path));
           candidates.forEach((file) => {
             file.status = ICompressor.Status.Processing;
+            file.watchVersion = versions.get(file.path);
+            runningRef.current.set(file.path, file);
           });
           setFiles([...files.filter((file) => !incoming.has(file.path)), ...candidates]);
           void handleCompress(candidates);
         }
-        if (busy.length) break;
+        batch = [];
       }
     } catch (error) {
-      captureError(error);
+      if (activeRef.current) {
+        queueRef.current.retry(batch);
+        captureError(error);
+      }
     } finally {
       drainingRef.current = false;
-      if (queueRef.current.length && activeRef.current) throttledProcessData();
+      if (activeRef.current && queueRef.current.hasReady(isBusy)) throttledProcessData();
     }
   });
 
@@ -306,11 +344,8 @@ function CompressionWatch() {
           } else if (msg.event === 'add') {
             const payload = JSON.parse(msg.data);
             const path = payload.fullPath;
-            const hash = payload.content_hash;
-
-            if (!historys.current.has(hash)) {
-              queueRef.current.push(path);
-            }
+            if (typeof payload.version !== 'string') return;
+            queueRef.current.add({ path, version: payload.version });
             throttledProcessData();
           } else if (msg.event === 'self-enoent') {
             console.log('[Sidecar] Watch EventSource self-enoent');
@@ -373,7 +408,7 @@ function CompressionWatch() {
     window.addEventListener('visibilitychange', handlePageVisible);
     return () => {
       activeRef.current = false;
-      queueRef.current = [];
+      queueRef.current.clear();
       throttledProcessData.cancel();
       ctrl.abort();
       ctrlRef.current = null;

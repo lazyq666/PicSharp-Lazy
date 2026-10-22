@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 use tokio::{
-    io::{AsyncBufReadExt, BufReader},
+    io::{AsyncBufReadExt, AsyncReadExt, BufReader},
     process::Command,
 };
 
@@ -30,14 +30,7 @@ pub enum Preset {
     Compatible,
 }
 impl Preset {
-    pub fn suffix(self) -> &'static str {
-        match self {
-            Self::Compact => "av1_47",
-            Self::Balanced => "av1_35",
-            Self::Compatible => "h264_28",
-        }
-    }
-    fn args(self) -> Vec<String> {
+    fn args(self, info: &MediaInfo) -> Vec<String> {
         let args = match self {
             Self::Compatible => vec![
                 "-c:v", "libx264", "-preset", "slow", "-crf", "28", "-pix_fmt", "yuv420p",
@@ -53,7 +46,13 @@ impl Preset {
                 "-pix_fmt",
                 "yuv420p10le",
                 "-svtav1-params",
-                "lp=6",
+                // SVT >= 2.3 uses parallelism levels, not CPU counts. Keep CRF,
+                // preset and lookahead unchanged; lower parallelism only costs time.
+                if info.width.saturating_mul(info.height) > 1920 * 1080 {
+                    "lp=2"
+                } else {
+                    "lp=3"
+                },
             ],
         };
         args.into_iter().map(str::to_owned).collect()
@@ -108,6 +107,10 @@ pub struct Output {
     pub bytes: u64,
     pub elapsed: f64,
     pub log: PathBuf,
+    #[serde(default)]
+    pub stamp: Option<super::retention::OutputStamp>,
+    #[serde(default)]
+    pub protection_checked: bool,
 }
 #[derive(Clone)]
 pub struct Engine {
@@ -137,16 +140,37 @@ fn command(path: &Path) -> Command {
 async fn capture(path: &Path, args: &[String], cancel: &Cancel) -> Result<Vec<u8>, String> {
     check_cancel(cancel)?;
     let mut cmd = command(path);
-    cmd.args(args).stderr(Stdio::null());
-    tokio::select! {
-        _ = cancelled(cancel) => Err(CANCELLED.into()),
-        result = tokio::time::timeout(Duration::from_secs(30), cmd.output()) => {
-            let output = result.map_err(|_| "读取视频超时，请检查文件是否完整或磁盘是否可访问。")?
-                .map_err(|e| format!("无法启动视频引擎：{e}"))?;
-            if !output.status.success() { return Err("无法读取视频，请检查文件是否完整、格式是否受支持。".into()); }
-            Ok(output.stdout)
+    let mut child = cmd
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("无法启动视频引擎：{e}"))?;
+    let mut stdout = child.stdout.take().ok_or("无法读取视频引擎输出。")?;
+    let mut bytes = Vec::new();
+    let status = tokio::select! {
+        _ = cancelled(cancel) => {
+            let _ = child.kill().await;
+            return Err(CANCELLED.into());
+        },
+        result = tokio::time::timeout(Duration::from_secs(30), async {
+            let (_, status) = tokio::try_join!(stdout.read_to_end(&mut bytes), child.wait())?;
+            Ok::<_, std::io::Error>(status)
+        }) => match result {
+            Ok(Ok(status)) => status,
+            error => {
+                let _ = child.kill().await;
+                return Err(match error {
+                    Ok(Err(error)) => error.to_string(),
+                    _ => "读取视频超时，请检查文件是否完整或磁盘是否可访问。".into(),
+                });
+            }
         }
+    };
+    if !status.success() {
+        return Err("无法读取视频，请检查文件是否完整、格式是否受支持。".into());
     }
+    Ok(bytes)
 }
 fn strings(args: &[&str]) -> Vec<String> {
     args.iter().map(|s| s.to_string()).collect()
@@ -222,7 +246,9 @@ pub fn encode_args(input: &Path, temp: &Path, info: &MediaInfo, preset: Preset) 
         "-nostdin",
         "-n",
         "-threads",
-        "4",
+        "2",
+        "-filter_threads",
+        "2",
         "-protocol_whitelist",
         "file,pipe",
         "-i",
@@ -240,7 +266,7 @@ pub fn encode_args(input: &Path, temp: &Path, info: &MediaInfo, preset: Preset) 
         "-sn",
         "-dn",
     ]));
-    args.extend(preset.args());
+    args.extend(preset.args(info));
     if info.width % 2 != 0 || info.height % 2 != 0 {
         args.extend(strings(&["-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2"]));
     }
@@ -320,6 +346,10 @@ impl Engine {
             "error",
             "-nostdin",
             "-y",
+            "-threads",
+            "1",
+            "-filter_threads",
+            "1",
             "-protocol_whitelist",
             "file,pipe",
             "-i",
@@ -334,6 +364,12 @@ impl Engine {
             "scale=320:240:force_original_aspect_ratio=decrease",
             "-update",
             "1",
+            "-threads",
+            "1",
+            "-c:v",
+            "mjpeg",
+            "-f",
+            "image2",
         ]));
         args.push(output.to_string_lossy().into_owned());
         capture(&self.ffmpeg, &args, cancel).await.map(|_| ())
@@ -418,30 +454,29 @@ impl Engine {
                 .file_stem()
                 .and_then(|n| n.to_str())
                 .unwrap_or("video"),
-            preset,
         )?;
+        // Removing the staging hard link changes ctime; stamp only the final version.
+        drop(temp);
+        let stamp = Some(super::retention::stamp(&path)?);
         Ok(Output {
             path,
             bytes,
             elapsed: start.elapsed().as_secs_f64(),
             log,
+            stamp,
+            protection_checked: true,
         })
     }
 }
 
-pub fn publish(
-    temp: &Path,
-    directory: &Path,
-    stem: &str,
-    preset: Preset,
-) -> Result<PathBuf, String> {
+pub fn publish(temp: &Path, directory: &Path, stem: &str) -> Result<PathBuf, String> {
     for index in 0..10000 {
         let suffix = if index == 0 {
             String::new()
         } else {
             format!("_{}", index + 1)
         };
-        let path = directory.join(format!("{stem}_picsharp_{}{suffix}.mp4", preset.suffix()));
+        let path = directory.join(format!("{stem}{suffix}.mp4"));
         match std::fs::hard_link(temp, &path) {
             Ok(()) => return Ok(path),
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,

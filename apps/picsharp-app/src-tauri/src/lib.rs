@@ -236,6 +236,9 @@ pub fn run() {
             video::ipc_video_engine_status,
             video::ipc_register_videos,
             video::ipc_video_preview,
+            video::ipc_prepare_video_preview,
+            video::ipc_cancel_video_preview,
+            video::ipc_filter_video_inputs,
             video::ipc_compress_video,
             video::ipc_cancel_video,
             video::ipc_video_history,
@@ -262,7 +265,9 @@ pub fn run() {
 
     builder
         .setup(|app| {
-            app.manage(std::sync::Arc::new(video::VideoService::new(app.path().app_data_dir()?.join("video"))));
+            let videos = std::sync::Arc::new(video::VideoService::new(app.path().app_data_dir()?.join("video")));
+            videos.start_maintenance();
+            app.manage(videos);
             match init_settings(&app.handle()) {
                 Ok(()) => {
                     info!("[init_settings] -> Settings initialized");

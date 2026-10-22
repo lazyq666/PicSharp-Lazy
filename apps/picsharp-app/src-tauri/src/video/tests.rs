@@ -88,9 +88,14 @@ fn publication_never_overwrites_and_history_recovers_interrupted_jobs() {
     std::fs::create_dir_all(&root).unwrap();
     let temp = root.join("source.mp4");
     std::fs::write(&temp, b"original").unwrap();
-    let first = publish(&temp, &root, "source", Preset::Compact).unwrap();
-    let second = publish(&temp, &root, "source", Preset::Compact).unwrap();
-    assert_ne!(first, second);
+    let output_dir = root.join("output");
+    std::fs::create_dir_all(&output_dir).unwrap();
+    let named = publish(&temp, &output_dir, "原片.name").unwrap();
+    assert_eq!(named, output_dir.join("原片.name.mp4"));
+    let first = publish(&temp, &root, "source").unwrap();
+    let second = publish(&temp, &root, "source").unwrap();
+    assert_eq!(first, root.join("source_2.mp4"));
+    assert_eq!(second, root.join("source_3.mp4"));
     assert_eq!(std::fs::read(&temp).unwrap(), b"original");
     let service = VideoService::new(root.clone());
     let job = Job {
@@ -108,7 +113,7 @@ fn publication_never_overwrites_and_history_recovers_interrupted_jobs() {
     };
     std::fs::write(root.join(".picsharp-video-test.mp4"), b"partial").unwrap();
     service
-        .save(&Data {
+        .save(&mut Data {
             jobs: vec![job],
             controls: HashMap::new(),
         })
@@ -190,6 +195,12 @@ async fn real_ffmpeg_presets_audio_padding_cancellation_and_hdr() {
         assert_eq!(result.fps, 12.0);
         assert!((result.duration - 1.0).abs() < 0.2);
         assert!(output.bytes > 0);
+        assert!(output.stamp.as_ref().unwrap().unchanged(&output.path));
+        retention::save_stamp(&root, output.stamp.as_ref().unwrap()).unwrap();
+        assert!(
+            filter_video_inputs(vec![output.path.to_string_lossy().into_owned()], &root, &[])
+                .is_empty()
+        );
     }
     assert_eq!(std::fs::read(&source).unwrap(), original);
     let thumb = root.join("preview.jpg");
@@ -237,5 +248,363 @@ async fn real_ffmpeg_presets_audio_padding_cancellation_and_hdr() {
         .await
         .unwrap_err()
         .contains("HDR"));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn startup_bounds_history_and_removes_expired_cache_without_touching_outputs() {
+    let root = std::env::temp_dir().join(format!("picsharp-retention-test-{}", nanoid::nanoid!()));
+    std::fs::create_dir_all(root.join("thumbnails")).unwrap();
+    std::fs::create_dir_all(root.join("logs")).unwrap();
+    let output = root.join("keep.mp4");
+    std::fs::write(&output, b"finished video").unwrap();
+    let jobs: Vec<_> = (0..600).map(|n| serde_json::json!({
+        "id": format!("job-{n}"), "path": root.join(format!("source-{n}.mov")),
+        "preset": "compact", "directory": root, "status": "completed",
+        "output": {"path": output, "bytes": 14, "elapsed": 1.0, "log": root.join("logs/old.log")}
+    })).collect();
+    std::fs::write(root.join("jobs.json"), serde_json::to_vec(&jobs).unwrap()).unwrap();
+    for file in [root.join("thumbnails/old.jpg"), root.join("logs/old.log")] {
+        std::fs::write(&file, b"old cache").unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(file)
+            .unwrap()
+            .set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(60 * 86400))
+            .unwrap();
+    }
+    let service = VideoService::new(root.clone());
+    assert!(
+        service.data.lock().unwrap().jobs.len() <= 500,
+        "history grows without a bound"
+    );
+    assert!(
+        !root.join("thumbnails/old.jpg").exists(),
+        "expired thumbnails remain"
+    );
+    assert!(!root.join("logs/old.log").exists(), "expired logs remain");
+    assert_eq!(std::fs::read(&output).unwrap(), b"finished video");
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn preview_registration_cancellation_and_drop_release_controls() {
+    let previews = previews::Previews::default();
+    let early = previews.prepare();
+    previews.cancel(&early);
+    assert!(previews.start(&early).is_err());
+    let id = previews.prepare();
+    let request = previews.start(&id).unwrap();
+    assert!(!previews.idle());
+    previews.cancel(&id);
+    assert!(request.cancel.load(Ordering::SeqCst));
+    assert!(
+        !previews.idle(),
+        "shutdown must wait for the running process to finish"
+    );
+    drop(request);
+    assert!(previews.idle());
+    assert!(previews.start(&id).is_err());
+    let prepared = previews.prepare();
+    previews.cancel_all();
+    assert!(previews.start(&prepared).is_err());
+}
+
+#[tokio::test]
+async fn cancelled_preview_leaves_the_queue_before_a_slot_is_available() {
+    let root = std::env::temp_dir().join(format!("picsharp-preview-test-{}", nanoid::nanoid!()));
+    let service = VideoService::new(root.clone());
+    let encoding_cancel = Arc::new(AtomicBool::new(false));
+    let _encoding = service.media_permit(2, &encoding_cancel).await.unwrap();
+    let id = service.previews.prepare();
+    let request = service.previews.start(&id).unwrap();
+    let queued = service.media_permit(1, &request.cancel);
+    service.previews.cancel(&id);
+    assert_eq!(
+        tokio::time::timeout(std::time::Duration::from_secs(1), queued)
+            .await
+            .unwrap()
+            .unwrap_err(),
+        CANCELLED
+    );
+    drop(request);
+    assert!(service.previews.idle());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn history_eviction_keeps_active_jobs_and_durable_output_protection() {
+    let root = std::env::temp_dir().join(format!("picsharp-history-test-{}", nanoid::nanoid!()));
+    let service = VideoService::new(root.clone());
+    let output = root.join("old-output.mp4");
+    std::fs::write(&output, b"output").unwrap();
+    let mut data = service.data.lock().unwrap();
+    for n in 0..520 {
+        data.jobs.push(Job {
+            id: n.to_string(),
+            path: root.join(format!("source-{n}.mp4")),
+            preset: Preset::Compact,
+            directory: root.clone(),
+            status: "completed".into(),
+            input_bytes: 100,
+            info: None,
+            thumbnail: None,
+            progress: Progress::default(),
+            error: None,
+            output: (n == 1).then(|| Output {
+                path: output.clone(),
+                bytes: 6,
+                elapsed: 1.0,
+                log: root.join("logs/1.log"),
+                stamp: Some(retention::stamp(&output).unwrap()),
+                protection_checked: true,
+            }),
+        });
+    }
+    data.jobs[0].status = "pending".into();
+    data.controls
+        .insert("0".into(), Arc::new(AtomicBool::new(false)));
+    service.save(&mut data).unwrap();
+    assert_eq!(data.jobs.len(), retention::HISTORY_LIMIT + 1);
+    assert_eq!(data.jobs[0].id, "0");
+    assert!(retention::is_output(&root, &output));
+    data.controls.remove("0");
+    service.save(&mut data).unwrap();
+    assert_eq!(data.jobs.len(), retention::HISTORY_LIMIT);
+    drop(data);
+    drop(service);
+    let _restored = VideoService::new(root.clone());
+    assert!(retention::is_output(&root, &output));
+    std::fs::write(&output, b"a replacement source").unwrap();
+    assert!(!retention::is_output(&root, &output));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+fn completed_watch_job(source: PathBuf, output: PathBuf) -> Job {
+    Job {
+        id: "watch-output".into(),
+        path: source,
+        preset: Preset::Compact,
+        directory: output.parent().unwrap().to_owned(),
+        status: "completed".into(),
+        input_bytes: 100,
+        info: None,
+        thumbnail: None,
+        progress: Progress::default(),
+        error: None,
+        output: Some(Output {
+            bytes: std::fs::metadata(&output).unwrap().len(),
+            stamp: Some(retention::stamp(&output).unwrap()),
+            protection_checked: true,
+            path: output,
+            elapsed: 1.0,
+            log: PathBuf::new(),
+        }),
+    }
+}
+
+#[test]
+fn replacing_a_recent_output_bypasses_both_disk_and_history_filters_after_restart() {
+    let root = std::env::temp_dir().join(format!("picsharp-output-replace-{}", nanoid::nanoid!()));
+    let service = VideoService::new(root.clone());
+    let output = root.join("output.mp4");
+    std::fs::write(&output, b"AAAA").unwrap();
+    let saved = retention::remember_output(&root, &output).unwrap();
+    let modified = std::fs::metadata(&output).unwrap().modified().unwrap();
+    let paths = vec![output.to_string_lossy().into_owned()];
+    let fallback = vec![saved.clone()];
+    {
+        let mut data = service.data.lock().unwrap();
+        data.jobs
+            .push(completed_watch_job(root.join("source.mov"), output.clone()));
+        service.save(&mut data).unwrap();
+    }
+    assert!(filter_video_inputs(paths.clone(), &root, &fallback).is_empty());
+    assert_eq!(
+        check_watch_input(&service, &output, saved.version.as_deref()),
+        Err(WATCH_INPUT_CHANGED.into())
+    );
+    std::thread::sleep(Duration::from_millis(10));
+    // Same length and original mtime, but a different ctime/content.
+    std::fs::write(&output, b"BBBB").unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(&output)
+        .unwrap()
+        .set_modified(modified)
+        .unwrap();
+    assert!(!retention::is_output(&root, &output));
+    assert_eq!(filter_video_inputs(paths.clone(), &root, &fallback), paths);
+    let replacement = retention::stamp(&output).unwrap();
+    assert!(check_watch_input(&service, &output, replacement.version.as_deref()).is_ok());
+    drop(service);
+    let restored = VideoService::new(root.clone());
+    assert!(
+        !retention::is_output(&root, &output),
+        "startup must not register the replacement as an old output"
+    );
+    assert!(restored.data.lock().unwrap().jobs[0]
+        .output
+        .as_ref()
+        .unwrap()
+        .stamp
+        .is_none());
+    assert!(check_watch_input(&restored, &output, replacement.version.as_deref()).is_ok());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn watched_video_versions_match_node_and_reject_replacements_while_queued() {
+    let root = std::env::temp_dir().join(format!("picsharp-watch-version-{}", nanoid::nanoid!()));
+    let service = VideoService::new(root.clone());
+    let source = root.join("source.mp4");
+    std::fs::write(&source, b"AAAA").unwrap();
+    let original = retention::stamp(&source).unwrap();
+    let node = std::process::Command::new("node")
+        .arg("-e")
+        .arg("const s=require('node:fs').statSync(process.argv[1],{bigint:true});process.stdout.write([s.dev,s.ino,s.size,s.mtimeNs,s.ctimeNs].join(':'))")
+        .arg(&source).output().unwrap();
+    assert!(node.status.success());
+    assert_eq!(
+        original.version.as_deref(),
+        Some(String::from_utf8(node.stdout).unwrap().as_str())
+    );
+    assert!(check_watch_input(&service, &source, original.version.as_deref()).is_ok());
+    let modified = std::fs::metadata(&source).unwrap().modified().unwrap();
+    let incoming = root.join("incoming.mp4");
+    std::fs::write(&incoming, b"BBBB").unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(&incoming)
+        .unwrap()
+        .set_modified(modified)
+        .unwrap();
+    std::fs::rename(incoming, &source).unwrap();
+    assert_eq!(
+        check_watch_input(&service, &source, original.version.as_deref()),
+        Err(WATCH_INPUT_CHANGED.into())
+    );
+    let replacement = retention::stamp(&source).unwrap();
+    assert!(check_watch_input(&service, &source, replacement.version.as_deref()).is_ok());
+    // Manual compression remains an explicit user action, outside watch filtering.
+    retention::remember_output(&root, &source).unwrap();
+    assert!(check_watch_input(&service, &source, None).is_ok());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn legacy_history_migration_does_not_turn_a_replacement_into_an_output() {
+    let root = std::env::temp_dir().join(format!("picsharp-legacy-output-{}", nanoid::nanoid!()));
+    std::fs::create_dir_all(&root).unwrap();
+    let output = root.join("output.mp4");
+    std::fs::write(&output, b"AAAA").unwrap();
+    let modified = std::fs::metadata(&output).unwrap().modified().unwrap();
+    let mut job = completed_watch_job(root.join("source.mov"), output.clone());
+    job.output.as_mut().unwrap().stamp = None;
+    job.output.as_mut().unwrap().protection_checked = false;
+    std::fs::write(
+        root.join("jobs.json"),
+        serde_json::to_vec(&vec![job]).unwrap(),
+    )
+    .unwrap();
+    std::thread::sleep(Duration::from_millis(10));
+    std::fs::write(&output, b"BBBB").unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(&output)
+        .unwrap()
+        .set_modified(modified)
+        .unwrap();
+    let _restored = VideoService::new(root.clone());
+    assert!(!retention::is_output(&root, &output));
+    drop(_restored);
+    let _restored_again = VideoService::new(root.clone());
+    assert!(
+        !retention::is_output(&root, &output),
+        "migration must stay invalid after jobs.json is saved again"
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn cache_cleanup_enforces_count_and_bytes_but_protects_active_logs() {
+    let root = std::env::temp_dir().join(format!("picsharp-cache-test-{}", nanoid::nanoid!()));
+    std::fs::create_dir_all(&root).unwrap();
+    for n in 0..5 {
+        let path = root.join(format!("{n}.log"));
+        std::fs::write(&path, b"four").unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(10 - n))
+            .unwrap();
+    }
+    let foreign = root.join("source.mp4");
+    std::fs::write(&foreign, b"must not delete").unwrap();
+    let policy = retention::CachePolicy {
+        extension: "log",
+        count: 3,
+        bytes: 8,
+        age: std::time::Duration::from_secs(3600),
+    };
+    retention::clean_cache(&root, &policy, &HashSet::from([root.join("0.log")]));
+    assert!(root.join("0.log").exists());
+    assert!(root.join("3.log").exists() && root.join("4.log").exists());
+    assert!(!root.join("1.log").exists() && !root.join("2.log").exists());
+    retention::clean_cache(&root, &policy, &HashSet::new());
+    assert!(!root.join("0.log").exists());
+    assert_eq!(std::fs::read(foreign).unwrap(), b"must not delete");
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn cancelling_a_probe_waits_for_the_process_to_exit() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::env::temp_dir().join(format!("picsharp-probe-cancel-{}", nanoid::nanoid!()));
+    std::fs::create_dir_all(&root).unwrap();
+    let probe = root.join("probe");
+    let pid_file = root.join("pid");
+    // exec keeps the recorded PID and simulates a probe blocked on input.
+    std::fs::write(
+        &probe,
+        format!(
+            "#!/bin/sh\necho $$ > '{}'\nexec /bin/sleep 30\n",
+            pid_file.display()
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&probe, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let input = root.join("input.mp4");
+    std::fs::write(&input, b"test").unwrap();
+    let engine = Engine {
+        ffmpeg: probe.clone(),
+        ffprobe: probe,
+    };
+    let cancel = Arc::new(AtomicBool::new(false));
+    let stopping = async {
+        while !pid_file.exists() {
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+        cancel.store(true, Ordering::SeqCst);
+    };
+    let (result, _) = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        tokio::join!(engine.inspect(&input, &cancel), stopping)
+    })
+    .await
+    .unwrap();
+    assert_eq!(result.unwrap_err(), CANCELLED);
+    let pid = std::fs::read_to_string(pid_file).unwrap();
+    let alive = std::process::Command::new("/bin/kill")
+        .args(["-0", pid.trim()])
+        .stderr(std::process::Stdio::null())
+        .status()
+        .unwrap()
+        .success();
+    assert!(
+        !alive,
+        "the cancellation returned while the child was still alive"
+    );
     std::fs::remove_dir_all(root).unwrap();
 }

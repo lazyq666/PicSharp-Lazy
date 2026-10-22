@@ -41,8 +41,41 @@ export const videoTime = (seconds: number) => {
   const value = Math.max(0, Math.ceil(seconds));
   return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}`;
 };
-const activeRequests = new Set<string>();
+const activeRequests = new Map<string, FileInfo>();
 const cancellationRequests = new Set<string>();
+
+// Check only the incoming paths against durable output records, without loading all history.
+export async function excludeVideoOutputs(paths: string[]): Promise<string[]> {
+  if (!paths.some((path) => /\.mp4$/i.test(path))) return paths;
+  return invoke<string[]>('ipc_filter_video_inputs', { paths });
+}
+
+export function requestVideoPreview(path: string) {
+  let requestId: string | undefined;
+  let cancelled = false;
+  const cancel = () => {
+    cancelled = true;
+    if (requestId) void invoke('ipc_cancel_video_preview', { requestId }).catch(console.error);
+  };
+  // Register first: cancelling before registration resolves must also cancel the future work.
+  const promise = invoke<string>('ipc_prepare_video_preview').then(async (id) => {
+    requestId = id;
+    if (cancelled) {
+      await invoke('ipc_cancel_video_preview', { requestId });
+      return null;
+    }
+    try {
+      return await invoke<{ info: VideoInfo; thumbnail?: string }>('ipc_video_preview', {
+        path,
+        requestId,
+      });
+    } finally {
+      cancel();
+    }
+  });
+  return { promise, cancel };
+}
+
 export const cancelVideo = (path: string) => {
   if (activeRequests.has(path)) cancellationRequests.add(path);
   return invoke('ipc_cancel_video', { path });
@@ -73,9 +106,10 @@ export function applyJob(file: FileInfo, job: VideoJob) {
 }
 
 export async function compressVideo(file: FileInfo): Promise<ICompressor.ResultItem> {
+  if (activeRequests.has(file.path)) throw new Error('此视频已经在压缩队列中。');
   const { eventEmitter } = useCompressionStore.getState();
   const { video_preset, video_output_folder } = useSettingsStore.getState();
-  activeRequests.add(file.path);
+  activeRequests.set(file.path, file);
   cancellationRequests.delete(file.path);
   file.status = ICompressor.Status.Processing;
   file.videoPhase = 'submitting';
@@ -84,14 +118,7 @@ export async function compressVideo(file: FileInfo): Promise<ICompressor.ResultI
   eventEmitter.emit('update_file_item', file.path);
   let unlisten: UnlistenFn | undefined;
   try {
-    unlisten = await listen<VideoJob>('video-job', ({ payload }) => {
-      if (payload.path !== file.path) return;
-      applyJob(file, payload);
-      if (payload.status === 'pending' && cancellationRequests.has(file.path)) {
-        void invoke('ipc_cancel_video', { path: file.path });
-      }
-      eventEmitter.emit('update_file_item', file.path);
-    });
+    unlisten = await listenVideoJobs();
     if (cancellationRequests.has(file.path)) {
       file.videoPhase = 'cancelled';
       throw new Error('已取消，未完成的文件已清理。');
@@ -100,6 +127,7 @@ export async function compressVideo(file: FileInfo): Promise<ICompressor.ResultI
       path: file.path,
       preset: video_preset,
       directory: video_output_folder || null,
+      watchVersion: file.watchVersion || null,
     });
     applyJob(file, {
       id: file.id,
@@ -123,6 +151,11 @@ export async function compressVideo(file: FileInfo): Promise<ICompressor.ResultI
       ssim: 0,
     };
   } catch (error) {
+    if (file.watchVersion && String(error) === 'PICSHARP_WATCH_INPUT_CHANGED') {
+      file.status = ICompressor.Status.Cancelled;
+      file.videoPhase = 'cancelled';
+      return { input_path: file.path, skipped: true } as ICompressor.ResultItem;
+    }
     file.status =
       file.videoPhase === 'cancelled' || cancellationRequests.has(file.path)
         ? ICompressor.Status.Cancelled
@@ -170,13 +203,40 @@ export async function restoreVideoHistory(): Promise<FileInfo[]> {
   });
 }
 
-export function listenVideoJobs() {
-  return listen<VideoJob>('video-job', ({ payload }) => {
+let jobListener: Promise<UnlistenFn> | undefined;
+let listenerUsers = 0;
+
+// The page and all queued jobs share one native event subscription.
+export async function listenVideoJobs(): Promise<UnlistenFn> {
+  listenerUsers += 1;
+  const listening = (jobListener ??= listen<VideoJob>('video-job', ({ payload }) => {
     const { fileMap, eventEmitter } = useCompressionStore.getState();
-    const file = fileMap.get(payload.path);
-    if (file?.mediaType === 'video') {
-      applyJob(file, payload);
-      eventEmitter.emit('update_file_item', file.path);
+    const targets = new Set([activeRequests.get(payload.path), fileMap.get(payload.path)]);
+    for (const file of targets) {
+      if (file?.mediaType === 'video') applyJob(file, payload);
     }
-  });
+    if (['completed', 'failed', 'cancelled'].includes(payload.status)) {
+      useCompressionStore.getState().trimWatchHistory();
+    }
+    if (payload.status === 'pending' && cancellationRequests.has(payload.path)) {
+      void invoke('ipc_cancel_video', { path: payload.path }).catch(console.error);
+    }
+    eventEmitter.emit('update_file_item', payload.path);
+  }));
+  let unlisten: UnlistenFn;
+  try {
+    unlisten = await listening;
+  } catch (error) {
+    if (--listenerUsers === 0 && jobListener === listening) jobListener = undefined;
+    throw error;
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    if (--listenerUsers === 0 && jobListener === listening) {
+      jobListener = undefined;
+      unlisten();
+    }
+  };
 }

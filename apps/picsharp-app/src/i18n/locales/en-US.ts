@@ -222,6 +222,9 @@ const enUS = {
   'settings.compression.watermark.image.scale.description':
     'Set the scale of the watermark image, value in 0.05-1, 1 means no scale, keep the original image size.',
   // Settings.Compression.FileIgnore
+  'settings.compression.ignore_nine_patch.title': 'Ignore .9 Images',
+  'settings.compression.ignore_nine_patch.description':
+    'Skip images such as button.9.png when watching folders.',
   'settings.compression.file_ignore.title': 'Ignoring Files',
   'settings.compression.file_ignore.description':
     'When watching for new images, these files will be ignored, multiple files separated by line breaks, support glob syntax.',

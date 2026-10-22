@@ -8,8 +8,9 @@ import { isValidArray, isWindows, getFileSize, hashFile } from '../../utils';
 import path from 'node:path';
 import { ConvertFormat, SaveMode } from '../../constants';
 import { createOutputPath, copyFileToTemp, createOutputPathTempPath } from '../../utils';
-import { rename, unlink, copyFile } from 'node:fs/promises';
+import { rm, copyFile } from 'node:fs/promises';
 import { calCompressionRate } from '../../utils';
+import { imageOutputRecords, assertWatchInput } from '../output-records';
 
 type Format = keyof FormatEnum;
 
@@ -88,30 +89,25 @@ export async function saveImage(
   const originalEctypePath = await copyFileToTemp(inputPath, options.temp_dir);
   // 创建输出临时文件
   const outputTempPath = createOutputPathTempPath(outputPath);
-  // 输出到临时文件
-  const { size: compressedSize } = await stream
-    .toFormat(format, process_options)
-    .toFile(outputTempPath);
-  // 计算压缩率
-  const compressionRate = calCompressionRate(originalSize, compressedSize);
-  // 判断是否需要压缩
-  const availableCompressRate = compressionRate >= (options.limit_compress_rate || 0);
-  // 如果需要压缩，则重命名临时文件到输出路径
-  if (availableCompressRate) {
-    await rename(outputTempPath, outputPath);
-    // 如果不需要压缩，则复制原始文件到输出路径
-  } else {
-    if (inputPath !== outputPath) {
-      await copyFile(inputPath, outputPath);
+  try {
+    const { size: compressedSize } = await stream
+      .toFormat(format, process_options)
+      .toFile(outputTempPath);
+    const compressionRate = calCompressionRate(originalSize, compressedSize);
+    const availableCompressRate = compressionRate >= (options.limit_compress_rate || 0);
+    if (availableCompressRate) {
+      await imageOutputRecords().commit(
+        outputPath,
+        outputTempPath,
+        inputPath === outputPath ? options.watch_version : undefined,
+      );
+    } else if (inputPath !== outputPath) {
+      await imageOutputRecords().publish(outputPath, (temporary) => copyFile(inputPath, temporary));
     }
-    await unlink(outputTempPath);
+    return { availableCompressRate, originalEctypePath, compressedSize, compressionRate };
+  } finally {
+    await rm(outputTempPath, { force: true });
   }
-  return {
-    availableCompressRate,
-    originalEctypePath,
-    compressedSize,
-    compressionRate,
-  };
 }
 
 export interface ImageTaskPayload {
@@ -128,6 +124,7 @@ export async function processImage(
   originalMetadata: Metadata,
 ) {
   const { input_path, options, process_options } = payload;
+  await assertWatchInput(input_path, options.watch_version);
   if (isWindows && options.save.mode === SaveMode.Overwrite) {
     sharp.cache(false);
   }

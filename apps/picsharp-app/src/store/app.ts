@@ -58,6 +58,7 @@ const useAppStore = create(
                   PICSHARP_SIDECAR_CLUSTER: 'false',
                   PICSHARP_SIDECAR_MODE: 'server',
                   PICSHARP_SIDECAR_STORE: '{}',
+                  PICSHARP_IMAGE_OUTPUTS_DIR: await join(await appDataDir(), 'image-outputs'),
                   PICSHARP_SIDECAR_SENTRY_DSN: __PICSHARP_SIDECAR_SENTRY_DSN__,
                   NODE_ENV: 'production',
                 },

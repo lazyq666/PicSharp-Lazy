@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import EventEmitter from 'eventemitter3';
 import useAppStore from './app';
 import { clearImageViewerCache } from '@/components/image-viewer/cache';
+import { trimWatchHistory } from '@/utils/watch-history';
 
 interface CompressionState {
   working: boolean;
@@ -20,6 +21,7 @@ interface CompressionAction {
   setFiles: (files: FileInfo[]) => void;
   removeFile: (path: string) => void;
   reset: () => void;
+  trimWatchHistory: () => void;
 }
 
 const useCompressionStore = create<CompressionState & CompressionAction>((set, get) => ({
@@ -40,11 +42,24 @@ const useCompressionStore = create<CompressionState & CompressionAction>((set, g
     set({ watchingFolder: path });
   },
   setFiles: (files: FileInfo[]) => {
+    if (get().watchingFolder) files = trimWatchHistory(files);
     set({
       files,
       fileMap: new Map(files.map((file) => [file.path, file])),
       selectedFiles: files.map((file) => file.path),
     });
+  },
+  trimWatchHistory: () => {
+    if (!get().watchingFolder) return;
+    const files = trimWatchHistory(get().files);
+    if (files !== get().files) {
+      const fileMap = new Map(files.map((file) => [file.path, file]));
+      set({
+        files,
+        fileMap,
+        selectedFiles: get().selectedFiles.filter((path) => fileMap.has(path)),
+      });
+    }
   },
   removeFile: (path: string) => {
     const targetIndex = get().files.findIndex((file) => file.path === path);
