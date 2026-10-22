@@ -18,6 +18,11 @@ declare global {
   }
 
   interface FileInfo {
+    mediaType?: 'image' | 'video';
+    videoInfo?: import('../utils/video').VideoInfo;
+    videoThumbnail?: string;
+    videoPhase?: string;
+    videoProgress?: import('../utils/video').VideoProgress;
     id: string;
     name: string;
     path: string;

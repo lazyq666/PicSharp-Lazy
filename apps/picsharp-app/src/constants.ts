@@ -6,6 +6,26 @@ export const VALID_TINYPNG_IMAGE_EXTS = ['png', 'jpg', 'jpeg', 'webp', 'avif'];
 
 export const VALID_IMAGE_EXTS = [...VALID_TINYPNG_IMAGE_EXTS, 'svg', 'gif', 'tiff', 'tif'];
 
+export const VALID_VIDEO_EXTS = [
+  'mp4',
+  'mov',
+  'm4v',
+  'mkv',
+  'webm',
+  'avi',
+  'mpg',
+  'mpeg',
+  'mts',
+  'm2ts',
+  'ts',
+  'wmv',
+  'flv',
+  '3gp',
+  'ogv',
+];
+export const VALID_MEDIA_EXTS = [...VALID_IMAGE_EXTS, ...VALID_VIDEO_EXTS];
+export type VideoPreset = 'compact' | 'balanced' | 'compatible';
+
 export const VALID_IMAGE_MIME_TYPES = {
   png: 'image/png',
   jpg: 'image/jpeg',
@@ -23,6 +43,8 @@ export enum SettingsKey {
   Autostart = 'autostart',
   AutoCheckUpdate = 'auto_check_update',
   PrivacyMode = 'privacy_mode',
+  VideoPreset = 'video_preset',
+  VideoOutputFolder = 'video_output_folder',
   CompressionMode = 'compression_mode',
   CompressionType = 'compression_type',
   CompressionLevel = 'compression_level',

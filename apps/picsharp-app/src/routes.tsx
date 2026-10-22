@@ -8,6 +8,7 @@ import CompressionWatch from './pages/compression/watch';
 import Settings from './pages/settings';
 import SettingsGeneral from './pages/settings/general';
 import SettingsCompression from './pages/settings/compression';
+import SettingsVideo from './pages/settings/video';
 import SettingsTinypng from './pages/settings/tinypng';
 import SettingsAbout from './pages/settings/about';
 import ImageCompare from './pages/image-compare';
@@ -69,6 +70,7 @@ export default function AppRoutes() {
                   <Route path='general' element={<SettingsGeneral />} />
                   <Route path='tinypng' element={<SettingsTinypng />} />
                   <Route path='compression' element={<SettingsCompression />} />
+                  <Route path='video' element={<SettingsVideo />} />
                   <Route path='about' element={<SettingsAbout />} />
                 </Route>
                 <Route path='image-compare' element={<ImageCompare />} />

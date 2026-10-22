@@ -14,6 +14,7 @@ use tauri_plugin_fs::FsExt;
 mod clipboard;
 mod command;
 mod file;
+mod video;
 mod file_ext;
 // mod image_processor;
 mod inspect;
@@ -38,13 +39,12 @@ fn init_settings(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     }
     let app_settings_path = app_data_dir.join("settings.json");
     let app_default_settings_path = app_data_dir.join("settings.default.json");
+    let config_default_settings = app.path().resolve("resources/settings.default.json", BaseDirectory::Resource)?;
+    // Refresh the reset template when new settings are introduced; keep user values intact.
+    std::fs::copy(&config_default_settings, &app_default_settings_path)?;
     if !app_settings_path.exists() {
         info!("[Init Settings] -> App settings file not exists, init it from config");
-        let config_default_settings = app
-            .path()
-            .resolve("resources/settings.default.json", BaseDirectory::Resource)?;
-        let _ = std::fs::copy(&config_default_settings, &app_settings_path);
-        let _ = std::fs::copy(&config_default_settings, &app_default_settings_path);
+        std::fs::copy(&config_default_settings, &app_settings_path)?;
         info!("[Init Settings] -> App settings file init done");
     } else {
         info!("[Init Settings] -> App settings file exists, skip init");
@@ -233,6 +233,12 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
+            video::ipc_video_engine_status,
+            video::ipc_register_videos,
+            video::ipc_video_preview,
+            video::ipc_compress_video,
+            video::ipc_cancel_video,
+            video::ipc_video_history,
             file::ipc_parse_paths,
             file::ipc_count_valid_files,
             file::ipc_is_file_in_directory,
@@ -256,6 +262,7 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            app.manage(std::sync::Arc::new(video::VideoService::new(app.path().app_data_dir()?.join("video"))));
             match init_settings(&app.handle()) {
                 Ok(()) => {
                     info!("[init_settings] -> Settings initialized");
@@ -299,6 +306,21 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("Error while running Picsharp application")
         .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { api, .. } = &event {
+                let videos = app.state::<std::sync::Arc<video::VideoService>>();
+                if !videos.idle() {
+                    api.prevent_exit();
+                    if !videos.exiting.swap(true, std::sync::atomic::Ordering::SeqCst) {
+                        videos.cancel_all();
+                        let videos = videos.inner().clone();
+                        let handle = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            while !videos.idle() { tokio::time::sleep(std::time::Duration::from_millis(80)).await; }
+                            handle.exit(0);
+                        });
+                    }
+                }
+            }
             if let tauri::RunEvent::WindowEvent {
                 label,
                 event: win_event,

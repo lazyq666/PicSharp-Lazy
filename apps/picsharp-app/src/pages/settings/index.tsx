@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router';
 import { Separator } from '@/components/ui/separator';
 import { SidebarNav } from './sidebar-nav';
-import { Settings2, FileArchive, Panda, Info, FolderSync, RefreshCw } from 'lucide-react';
+import { Settings2, FileArchive, Film, Panda, Info, FolderSync, RefreshCw } from 'lucide-react';
 import { useI18n } from '@/i18n';
 import { Button } from '@/components/ui/button';
 import useSettingsStore from '@/store/settings';
@@ -34,6 +34,11 @@ export default function SettingsLayout() {
       title: t('settings.compression.title'),
       href: '/settings/compression',
       icon: <FileArchive />,
+    },
+    {
+      title: t('video.settings'),
+      href: '/settings/video',
+      icon: <Film />,
     },
     {
       title: t('settings.tinypng.title'),

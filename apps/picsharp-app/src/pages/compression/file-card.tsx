@@ -10,7 +10,7 @@ import { useUpdate } from 'ahooks';
 import { exists } from '@tauri-apps/plugin-fs';
 import { getOSPlatform, isValidArray } from '@/utils';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import { RefreshCw, Ellipsis } from 'lucide-react';
+import { RefreshCw, Ellipsis, Film, X, Play } from 'lucide-react';
 import { calImageWindowSize, spawnWindow, createWebviewWindow } from '@/utils/window';
 import { WebviewWindow, getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
@@ -28,6 +28,8 @@ import useAppStore from '@/store/app';
 import { copyImage } from '@/utils/clipboard';
 import ImgTag from '@/components/img-tag';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { cancelVideo, compressVideo, videoTime, VideoInfo } from '@/utils/video';
 export interface FileCardProps {
   path: FileInfo['path'];
 }
@@ -255,7 +257,10 @@ function FileCard(props: FileCardProps) {
     menuItems.push({
       type: 'item',
       name: t('compression.file_action.copy'),
-      children: [copyPathMenuItem, copyFileMenuItem, copyAsMarkdownMenuItem, copyAsBase64MenuItem],
+      children:
+        file.mediaType === 'video'
+          ? [copyPathMenuItem]
+          : [copyPathMenuItem, copyFileMenuItem, copyAsMarkdownMenuItem, copyAsBase64MenuItem],
     });
     ContextMenu.open({
       x: event.clientX,
@@ -275,6 +280,23 @@ function FileCard(props: FileCardProps) {
       eventEmitter.off('update_file_item', updateFn);
     };
   }, [path]);
+
+  useEffect(() => {
+    if (file?.mediaType !== 'video' || file.videoThumbnail) return;
+    let active = true;
+    invoke<{ info: VideoInfo; thumbnail?: string }>('ipc_video_preview', { path })
+      .then((preview) => {
+        file.videoInfo = preview.info;
+        file.videoThumbnail = preview.thumbnail ? convertFileSrc(preview.thumbnail) : '';
+        if (active) update();
+      })
+      .catch(() => {
+        /* The compression task reports actionable read errors. */
+      });
+    return () => {
+      active = false;
+    };
+  }, [path, file?.mediaType]);
 
   if (!file) return null;
 
@@ -304,16 +326,46 @@ function FileCard(props: FileCardProps) {
         >
           <Ellipsis className='h-4 w-4' />
         </Button>
-        <ImageViewer
-          src={file.assetPath}
-          size={
-            file.status === ICompressor.Status.Completed ? file.compressedBytesSize : file.bytesSize
-          }
-          path={file.status === ICompressor.Status.Completed ? file.outputPath : file.path}
-          ext={file.ext}
-          ref={imgRef}
-          imgClassName='aspect-[4/3]'
-        />
+        {file.mediaType === 'video' ? (
+          <button
+            className='relative flex h-full w-full items-center justify-center'
+            aria-label={t('compression.file_action.open_file')}
+            onClick={() =>
+              openPath(file.outputPath || file.path).catch((error) =>
+                messageApi?.error(String(error)),
+              )
+            }
+          >
+            {file.videoThumbnail ? (
+              <img
+                src={file.videoThumbnail}
+                alt={file.name}
+                className='h-full w-full object-contain'
+              />
+            ) : (
+              <Film className='h-10 w-10 text-neutral-400' />
+            )}
+            <Play className='absolute h-8 w-8 rounded-full bg-black/50 p-2 text-white' />
+            {file.videoInfo && (
+              <span className='absolute bottom-2 right-2 rounded bg-black/60 px-1 text-xs text-white'>
+                {videoTime(file.videoInfo.duration)}
+              </span>
+            )}
+          </button>
+        ) : (
+          <ImageViewer
+            src={file.assetPath}
+            size={
+              file.status === ICompressor.Status.Completed
+                ? file.compressedBytesSize
+                : file.bytesSize
+            }
+            path={file.status === ICompressor.Status.Completed ? file.outputPath : file.path}
+            ext={file.ext}
+            ref={imgRef}
+            imgClassName='aspect-[4/3]'
+          />
+        )}
       </div>
       <div className='px-1 pb-1'>
         <Tooltip title={file.path} arrow={false}>
@@ -361,9 +413,65 @@ function FileCard(props: FileCardProps) {
               </span>
             </div>
           ) : (
-            <StatusBadge status={file.status} errorMessage={file.errorMessage} />
+            <StatusBadge
+              status={file.status}
+              errorMessage={file.errorMessage}
+              videoPhase={file.videoPhase}
+            />
           )}
         </div>
+        {file.mediaType === 'video' && (
+          <div className='mt-1 space-y-1 text-xs text-neutral-500'>
+            {file.videoInfo && (
+              <div>
+                {file.videoInfo.width} × {file.videoInfo.height} ·{' '}
+                {Number(file.videoInfo.fps.toFixed(2))} fps{file.videoInfo.hdr ? ' · HDR' : ''}
+              </div>
+            )}
+            {file.status === ICompressor.Status.Processing && (
+              <>
+                <Progress value={(file.videoProgress?.fraction || 0) * 100} className='h-1' />
+                <div className='flex items-center justify-between gap-1'>
+                  <span>
+                    {file.videoPhase === 'processing'
+                      ? `${Math.floor((file.videoProgress?.fraction || 0) * 100)}% · ${file.videoProgress?.speed?.toFixed(2) || '0.00'}×`
+                      : '0%'}
+                  </span>
+                  <Button
+                    size='icon'
+                    variant='ghost'
+                    className='h-6 w-6'
+                    aria-label={t('cancel')}
+                    disabled={!['pending', 'processing'].includes(file.videoPhase)}
+                    onClick={() =>
+                      cancelVideo(path).catch((error) => messageApi?.error(String(error)))
+                    }
+                  >
+                    <X className='h-3 w-3' />
+                  </Button>
+                </div>
+                {file.videoProgress?.remaining != null && (
+                  <div>
+                    {t('video.remaining', { time: videoTime(file.videoProgress.remaining) })}
+                  </div>
+                )}
+              </>
+            )}
+            {[ICompressor.Status.Failed, ICompressor.Status.Cancelled].includes(file.status) && (
+              <Button
+                variant='ghost'
+                size='sm'
+                className='h-6 w-full'
+                onClick={() =>
+                  compressVideo(file).catch((error) => messageApi?.error(String(error)))
+                }
+              >
+                <RefreshCw className='h-3 w-3' />
+                {t('video.retry')}
+              </Button>
+            )}
+          </div>
+        )}
         {isValidArray(file.convertResults) && file.status === ICompressor.Status.Completed && (
           <>
             <Divider className='!my-0' plain>
@@ -402,7 +510,11 @@ function FileCard(props: FileCardProps) {
 
 export default memo(FileCard);
 
-const StatusBadge = ({ status, errorMessage }: Pick<FileInfo, 'status' | 'errorMessage'>) => {
+const StatusBadge = ({
+  status,
+  errorMessage,
+  videoPhase,
+}: Pick<FileInfo, 'status' | 'errorMessage' | 'videoPhase'>) => {
   const t = useI18n();
   const className = 'h-[18px] rounded-sm px-[6px] py-[0px] text-[12px] border-none select-none';
   return (
@@ -410,7 +522,9 @@ const StatusBadge = ({ status, errorMessage }: Pick<FileInfo, 'status' | 'errorM
       {status === ICompressor.Status.Processing && (
         <Badge variant='processing' className={className}>
           <RefreshCw className='mr-1 h-3 w-3 animate-spin' />
-          {t('processing')}
+          {videoPhase === 'pending' || videoPhase === 'submitting'
+            ? t('video.queued')
+            : t('processing')}
         </Badge>
       )}
       {status === ICompressor.Status.Failed && (
@@ -423,6 +537,11 @@ const StatusBadge = ({ status, errorMessage }: Pick<FileInfo, 'status' | 'errorM
       {status === ICompressor.Status.Completed && (
         <Badge variant='success' className={className}>
           {t('saved')}
+        </Badge>
+      )}
+      {status === ICompressor.Status.Cancelled && (
+        <Badge variant='minor' className={className}>
+          {t('video.cancelled')}
         </Badge>
       )}
       {status === ICompressor.Status.Undone && (

@@ -59,6 +59,11 @@ pub fn get_file_mime_type(path: &Path) -> Option<String> {
         "svg" => Some("image/svg+xml".to_string()),
         "tiff" | "tif" => Some("image/tiff".to_string()),
         "gif" => Some("image/gif".to_string()),
+        "mp4" | "m4v" => Some("video/mp4".into()),
+        "mov" => Some("video/quicktime".into()),
+        "mkv" => Some("video/x-matroska".into()),
+        "webm" => Some("video/webm".into()),
+        ext if crate::video::is_video_extension(ext) => Some("video/*".into()),
         _ => None,
     }
 }
@@ -89,7 +94,8 @@ pub struct FileInfo {
 
 impl FileInfo {
     fn from_entry(entry: &DirEntry, valid_exts: Vec<String>) -> Option<Self> {
-        let path = entry.path();
+        let canonical = dunce::canonicalize(entry.path()).ok()?;
+        let path = canonical.as_path();
         let md = metadata(path).ok()?;
 
         if !md.is_file() {

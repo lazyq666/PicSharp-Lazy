@@ -1,4 +1,5 @@
-import { memo, useRef, useContext } from 'react';
+import { memo, useRef, useContext, useEffect } from 'react';
+import { useUpdate } from 'ahooks';
 import { Button } from '@/components/ui/button';
 import { Sparkles, LoaderPinwheel } from 'lucide-react';
 import useAppStore from '@/store/app';
@@ -92,6 +93,13 @@ function ToolbarCompress() {
   const r = useReport();
   const indicatorRef = useRef<HTMLSpanElement>(null);
   const { messageApi } = useContext(AppContext);
+  const update = useUpdate();
+  useEffect(() => {
+    eventEmitter.on('update_file_item', update);
+    return () => {
+      eventEmitter.off('update_file_item', update);
+    };
+  }, [eventEmitter]);
   const disabledCompress =
     !files.length ||
     inCompressing ||
@@ -99,19 +107,24 @@ function ToolbarCompress() {
       (file) =>
         fileMap.get(file)?.status === ICompressor.Status.Pending ||
         fileMap.get(file)?.status === ICompressor.Status.Failed ||
-        fileMap.get(file)?.status === ICompressor.Status.Undone,
+        fileMap.get(file)?.status === ICompressor.Status.Undone ||
+        fileMap.get(file)?.status === ICompressor.Status.Cancelled,
     );
 
   const handleCompress = async () => {
     r('classic_compress_start', {
       files_num: selectedFiles.length,
     });
+    const hasImages = selectedFiles.some((path) => {
+      const file = fileMap.get(path);
+      return file && file.mediaType !== 'video' && file.status !== ICompressor.Status.Completed;
+    });
     let fulfilled = 0;
     let rejected = 0;
     const rejectedList = [];
     let startTime = Date.now();
     try {
-      if (compressionMode !== CompressionMode.Local && !isValidArray(tinypngApiKeys)) {
+      if (hasImages && compressionMode !== CompressionMode.Local && !isValidArray(tinypngApiKeys)) {
         r('tinypng_api_keys_not_configured');
         const result = await message.confirm({
           title: t('tips.tinypng_api_keys_not_configured'),
@@ -127,7 +140,7 @@ function ToolbarCompress() {
         return;
       }
 
-      if (outputMode === CompressionOutputMode.SaveToNewFolder && !saveToFolder) {
+      if (hasImages && outputMode === CompressionOutputMode.SaveToNewFolder && !saveToFolder) {
         r('save_to_folder_not_configured');
         const result = await message.confirm({
           title: t('tips.save_to_folder_not_configured'),
@@ -144,6 +157,7 @@ function ToolbarCompress() {
       }
 
       if (
+        hasImages &&
         outputMode === CompressionOutputMode.SaveToNewFolder &&
         saveToFolder &&
         !(await exists(saveToFolder))
@@ -173,7 +187,8 @@ function ToolbarCompress() {
             file &&
             (file.status === ICompressor.Status.Pending ||
               file.status === ICompressor.Status.Failed ||
-              file.status === ICompressor.Status.Undone)
+              file.status === ICompressor.Status.Undone ||
+              file.status === ICompressor.Status.Cancelled)
           ) {
             file.status = ICompressor.Status.Processing;
             return file;
@@ -217,11 +232,11 @@ function ToolbarCompress() {
           if (targetFile) {
             fulfilled++;
             targetFile.status = ICompressor.Status.Completed;
-            if (res.compression_rate > 0) {
+            if (res.compression_rate > 0 || targetFile.mediaType === 'video') {
               targetFile.compressedBytesSize = res.output_size;
               targetFile.compressedDiskSize = res.output_size;
               targetFile.formattedCompressedBytesSize = humanSize(res.output_size);
-              targetFile.compressRate = `${correctFloat(res.compression_rate * 100)}%`;
+              targetFile.compressRate = `${correctFloat(Math.abs(res.compression_rate) * 100)}%`;
               targetFile.ssim = res.ssim;
             } else {
               targetFile.compressedBytesSize = targetFile.bytesSize;
@@ -229,10 +244,13 @@ function ToolbarCompress() {
               targetFile.formattedCompressedBytesSize = humanSize(targetFile.bytesSize);
               targetFile.compressRate = '0%';
             }
-            targetFile.assetPath = convertFileSrc(res.output_path);
+            if (targetFile.mediaType !== 'video')
+              targetFile.assetPath = convertFileSrc(res.output_path);
             targetFile.outputPath = res.output_path;
             targetFile.originalTempPath = res.original_temp_path;
-            targetFile.originalTempPathConverted = convertFileSrc(res.original_temp_path);
+            targetFile.originalTempPathConverted = res.original_temp_path
+              ? convertFileSrc(res.original_temp_path)
+              : '';
             targetFile.saveType = outputMode;
             if (isValidArray(res.convert_results)) {
               targetFile.convertResults = res.convert_results;
@@ -240,14 +258,12 @@ function ToolbarCompress() {
           } else {
             rejected++;
             rejectedList.push(res);
-            targetFile.status = ICompressor.Status.Failed;
-            targetFile.errorMessage = 'Process failed,Please try again';
             r('file_not_found_after_compression', {
               success: true,
               data: res,
             });
           }
-          eventEmitter.emit('update_file_item', targetFile.path);
+          eventEmitter.emit('update_file_item', res.input_path);
           if (indicatorRef.current) {
             indicatorRef.current.textContent = `${calProgress(fulfilled + rejected, files.length)}%`;
           }
@@ -257,13 +273,16 @@ function ToolbarCompress() {
           rejectedList.push(res);
           const targetFile = fileMap.get(res.input_path);
           if (targetFile) {
-            targetFile.status = ICompressor.Status.Failed;
+            targetFile.status =
+              targetFile.videoPhase === 'cancelled'
+                ? ICompressor.Status.Cancelled
+                : ICompressor.Status.Failed;
             if (isString(res.error)) {
               targetFile.errorMessage = res.error;
             } else {
               targetFile.errorMessage = res.error.toString();
             }
-            eventEmitter.emit('update_file_item', targetFile.path);
+            eventEmitter.emit('update_file_item', res.input_path);
           } else {
             r('file_not_found_after_compression', {
               success: false,

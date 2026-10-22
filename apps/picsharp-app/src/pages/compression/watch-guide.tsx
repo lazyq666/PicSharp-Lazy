@@ -9,8 +9,6 @@ import { isValidArray, stopPropagation } from '@/utils';
 import { exists, stat } from '@tauri-apps/plugin-fs';
 import { basename } from '@tauri-apps/api/path';
 import { Button } from '@/components/ui/button';
-import useSettingsStore from '@/store/settings';
-import { CompressionMode, CompressionOutputMode, SettingsKey } from '@/constants';
 import { CompressionContext } from '.';
 import useAppStore from '@/store/app';
 import { AppContext } from '@/routes';
@@ -20,8 +18,6 @@ import Folder from '@/components/animated-icon/folder';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import FormatsTips from './formats-tips';
 import { useReport } from '@/hooks/useReport';
-import { openSettingsWindow } from '@/utils/window';
-import { message } from '@/components/message';
 
 const WATCH_HISTORY_KEY = 'compression_watch_history';
 
@@ -68,68 +64,6 @@ function WatchCompressionGuide() {
         messageApi?.error(t('tips.path_not_exists'));
         return;
       }
-      const {
-        [SettingsKey.CompressionMode]: compressionMode,
-        [SettingsKey.TinypngApiKeys]: tinypngApiKeys,
-        [SettingsKey.CompressionOutput]: compressionOutput,
-        [SettingsKey.CompressionOutputSaveToFolder]: compressionOutputSaveToFolder,
-      } = useSettingsStore.getState();
-      if (compressionMode !== CompressionMode.Local && !isValidArray(tinypngApiKeys)) {
-        r('tinypng_api_keys_not_configured');
-        const result = await message.confirm({
-          title: t('tips.tinypng_api_keys_not_configured'),
-          confirmText: t('goToSettings'),
-          cancelText: t('cancel'),
-        });
-        if (result) {
-          openSettingsWindow({
-            subpath: 'tinypng',
-            hash: 'tinypng-api-keys',
-          });
-        }
-        return;
-      }
-      if (
-        compressionOutput === CompressionOutputMode.SaveToNewFolder &&
-        compressionOutputSaveToFolder === path
-      ) {
-        r('save_to_folder_not_configured');
-        const result = await message.confirm({
-          title: t('tips.watch_and_save_same_folder'),
-          confirmText: t('goToSettings'),
-          cancelText: t('cancel'),
-        });
-        if (result) {
-          openSettingsWindow({
-            subpath: 'compression',
-            hash: 'output',
-          });
-        }
-        return;
-      }
-
-      if (
-        compressionOutput === CompressionOutputMode.SaveToNewFolder &&
-        compressionOutputSaveToFolder &&
-        !(await exists(compressionOutputSaveToFolder))
-      ) {
-        r('save_to_folder_not_exists');
-        const result = await message.confirm({
-          title: t('tips.save_to_folder_not_exists', {
-            path: compressionOutputSaveToFolder,
-          }),
-          confirmText: t('goToSettings'),
-          cancelText: t('cancel'),
-        });
-        if (result) {
-          openSettingsWindow({
-            subpath: 'compression',
-            hash: 'output',
-          });
-        }
-        return;
-      }
-
       const newHistory = await updateWatchHistory(path);
       setHistory(newHistory);
       progressRef.current?.show(true);

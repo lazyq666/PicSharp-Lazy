@@ -76,6 +76,29 @@
         "description": "Image file",
         "mimeType": "image/*",
         "role": "Editor"
+      },
+      {
+        "name": "video",
+        "ext": [
+          "mp4",
+          "mov",
+          "m4v",
+          "mkv",
+          "webm",
+          "avi",
+          "mpg",
+          "mpeg",
+          "mts",
+          "m2ts",
+          "ts",
+          "wmv",
+          "flv",
+          "3gp",
+          "ogv"
+        ],
+        "description": "Video file",
+        "mimeType": "video/*",
+        "role": "Editor"
       }
     ],
     "createUpdaterArtifacts": true
@@ -93,12 +116,16 @@
     },
     "deep-link": {
       "desktop": {
-        "schemes": ["picsharp"]
+        "schemes": [
+          "picsharp"
+        ]
       }
     },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU0Nzg5NjY2MDRFOTlCNjQKUldSa20ra0VacFo0VkswUU1WaE45WFFzN3YvYXFZMkQ4c0xVdHZJaVhMNFZmNHd1MHIrUjNQMHgK",
-      "endpoints": ["https://github.com/AkiraBit/PicSharp/releases/latest/download/latest.json"]
+      "endpoints": [
+        "https://github.com/AkiraBit/PicSharp/releases/latest/download/latest.json"
+      ]
     },
     "fs": {
       "requireLiteralLeadingDot": false

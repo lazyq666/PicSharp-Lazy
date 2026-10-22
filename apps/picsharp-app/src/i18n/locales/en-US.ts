@@ -1,6 +1,33 @@
 const enUS = {
+  'video.settings': 'Video compression',
+  'video.preset': 'Preset',
+  'video.preset.compact': 'Smaller size (default)',
+  'video.preset.balanced': 'Balanced quality',
+  'video.preset.compatible': 'Wide compatibility',
+  'video.preset.compact.detail': 'AV1 · CRF 47, prioritizes smaller files.',
+  'video.preset.balanced.detail': 'AV1 · CRF 35, preserves more detail.',
+  'video.preset.compatible.detail': 'H.264 · CRF 28, supports more players and devices.',
+  'video.output': 'Save to',
+  'video.output.default': 'Source folder / PicSharp Videos',
+  'video.output.protection':
+    'Save MP4 copies in PicSharp Videos beside the source. Originals are kept; duplicate names are numbered.',
+  'video.output.reset': 'Restore default destination',
+  'video.engine': 'Video engine',
+  'video.engine.ready': 'Local CPU',
+  'video.engine.unavailable': 'Unavailable',
+  'video.engine.checking': 'Checking',
+  'video.engine.check': 'Check again',
+  'video.queued': 'Queued',
+  'video.cancelled': 'Cancelled',
+  'video.retry': 'Retry',
+  'video.remaining': 'About {{time}} remaining',
+  'video.formats': 'Video · Local processing · SDR',
+  'video.history': 'Video history',
+  'video.history_empty': 'No video compression history yet',
+  'video.cancel_all': 'Cancel video tasks',
+
   // Common
-  'common.no_image_to_compress': 'No images to compress',
+  'common.no_image_to_compress': 'No supported images or videos found',
   'common.drag_and_drop': 'Drop to compress',
   'common.start': 'Start',
   'common.stop': 'Stop',
@@ -54,7 +81,7 @@ const enUS = {
   'settings.general.privacy.description':
     'When privacy mode is enabled, the application will not collect any data.',
   // Settings.Compression
-  'settings.compression.title': 'Compression',
+  'settings.compression.title': 'Image compression',
   // Settings.Compression.Concurrency
   'settings.compression.concurrency.title': 'Concurrency',
   'settings.compression.concurrency.description': 'The number of concurrent compression tasks.',
@@ -415,7 +442,8 @@ const enUS = {
   'tips.open_settings_window_failed': 'Failed to open settings window',
 
   // Watch Compression Guide
-  'page.compression.watch.guide.title': 'Listen And Auto-Compress',
+  'page.compression.watch.guide.title':
+    'Watch for new images and videos and compress automatically',
   'page.compression.watch.guide.description':
     'Listen to new images in the directory and automatically compress them.',
   'page.compression.watch.guide.open_folder': 'Open Folder',

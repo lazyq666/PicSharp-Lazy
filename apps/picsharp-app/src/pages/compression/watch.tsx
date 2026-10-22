@@ -3,10 +3,11 @@ import { debounce } from 'radash';
 import useCompressionStore from '@/store/compression';
 import WatchFileManager from './watch-file-manager';
 import { parsePaths, humanSize } from '@/utils/fs';
-import { VALID_IMAGE_EXTS } from '@/constants';
+import { VALID_MEDIA_EXTS } from '@/constants';
 import { isValidArray, correctFloat } from '@/utils';
 import Compressor, { ICompressor } from '@/utils/compressor';
-import { SettingsKey } from '@/constants';
+import { SettingsKey, CompressionMode, CompressionOutputMode } from '@/constants';
+import { exists } from '@tauri-apps/plugin-fs';
 import { isString } from 'radash';
 import { useI18n } from '@/i18n';
 import useSettingsStore from '@/store/settings';
@@ -32,6 +33,8 @@ function CompressionWatch() {
   const historys = useRef<Set<string>>(new Set());
   const ctrlRef = useRef<AbortController | null>(null);
   const r = useReport();
+  const drainingRef = useRef(false);
+  const activeRef = useRef(true);
 
   const handleCompress = async (files: FileInfo[]) => {
     let fulfilled = 0;
@@ -69,6 +72,24 @@ function CompressionWatch() {
         [SettingsKey.CompressionKeepMetadata]: keepMetadata,
       } = useSettingsStore.getState();
 
+      // Image-only preflight errors must not block locally encoded videos.
+      const { watchingFolder } = useCompressionStore.getState();
+      let imageError = '';
+      if (compressionMode !== CompressionMode.Local && !isValidArray(tinypngApiKeys)) {
+        imageError = t('tips.tinypng_api_keys_not_configured');
+      } else if (outputMode === CompressionOutputMode.SaveToNewFolder) {
+        if (!saveToFolder) imageError = t('tips.save_to_folder_not_configured');
+        else if (saveToFolder === watchingFolder) imageError = t('tips.watch_and_save_same_folder');
+        else if (!(await exists(saveToFolder)))
+          imageError = t('tips.save_to_folder_not_exists', { path: saveToFolder });
+      }
+      const tasks = files.filter((file) => {
+        if (file.mediaType === 'video' || !imageError) return true;
+        file.status = ICompressor.Status.Failed;
+        file.errorMessage = imageError;
+        rejected++;
+        return false;
+      });
       eventEmitter.emit('update_file_item', 'all');
 
       await new Compressor({
@@ -100,56 +121,60 @@ function CompressionWatch() {
         watermarkImageScale,
         keepMetadata,
       }).compress(
-        files,
+        tasks,
         (res) => {
           const targetFile = fileMap.get(res.input_path);
           if (targetFile) {
             fulfilled++;
             targetFile.status = ICompressor.Status.Completed;
-            if (res.compression_rate > 0) {
+            if (res.compression_rate > 0 || targetFile.mediaType === 'video') {
               targetFile.compressedBytesSize = res.output_size;
               targetFile.compressedDiskSize = res.output_size;
               targetFile.formattedCompressedBytesSize = humanSize(res.output_size);
-              targetFile.compressRate = `${correctFloat(res.compression_rate * 100)}%`;
+              targetFile.compressRate = `${correctFloat(Math.abs(res.compression_rate) * 100)}%`;
             } else {
               targetFile.compressedBytesSize = targetFile.bytesSize;
               targetFile.compressedDiskSize = targetFile.diskSize;
               targetFile.formattedCompressedBytesSize = humanSize(targetFile.bytesSize);
               targetFile.compressRate = '0%';
             }
-            targetFile.assetPath = convertFileSrc(res.output_path);
+            if (targetFile.mediaType !== 'video')
+              targetFile.assetPath = convertFileSrc(res.output_path);
             targetFile.outputPath = res.output_path;
             targetFile.originalTempPath = res.original_temp_path;
-            targetFile.originalTempPathConverted = convertFileSrc(res.original_temp_path);
+            targetFile.originalTempPathConverted = res.original_temp_path
+              ? convertFileSrc(res.original_temp_path)
+              : '';
             targetFile.saveType = outputMode;
-            historys.current.add(res.hash);
+            if (res.hash) historys.current.add(res.hash);
             if (isValidArray(res.convert_results)) {
               targetFile.convertResults = res.convert_results;
             }
           } else {
             rejected++;
             rejectedList.push(res);
-            targetFile.status = ICompressor.Status.Failed;
-            targetFile.errorMessage = 'Process failed,Please try again';
             r('file_not_found_after_compression', {
               success: true,
               data: res,
             });
           }
-          eventEmitter.emit('update_file_item', targetFile.path);
+          eventEmitter.emit('update_file_item', res.input_path);
         },
         (res) => {
           rejected++;
           rejectedList.push(res);
           const targetFile = fileMap.get(res.input_path);
           if (targetFile) {
-            targetFile.status = ICompressor.Status.Failed;
+            targetFile.status =
+              targetFile.videoPhase === 'cancelled'
+                ? ICompressor.Status.Cancelled
+                : ICompressor.Status.Failed;
             if (isString(res.error)) {
               targetFile.errorMessage = res.error;
             } else {
               targetFile.errorMessage = res.error.toString();
             }
-            eventEmitter.emit('update_file_item', targetFile.path);
+            eventEmitter.emit('update_file_item', res.input_path);
           } else {
             r('file_not_found_after_compression', {
               success: false,
@@ -195,26 +220,38 @@ function CompressionWatch() {
     }
   };
 
-  const throttledProcessData = debounce({ delay: 1000 }, () => {
-    if (isValidArray(queueRef.current)) {
-      parsePaths(queueRef.current, VALID_IMAGE_EXTS)
-        .then((candidates) => {
-          if (isValidArray(candidates)) {
-            const { files, setFiles } = useCompressionStore.getState();
-            setFiles([
-              ...files,
-              ...candidates.map((item) => ({
-                ...item,
-                status: ICompressor.Status.Processing,
-              })),
-            ]);
-            handleCompress(candidates);
-          }
-        })
-        .catch((error) => {
-          captureError(error);
-        });
-      queueRef.current = [];
+  const throttledProcessData = debounce({ delay: 1000 }, async () => {
+    if (drainingRef.current) return;
+    drainingRef.current = true;
+    try {
+      while (activeRef.current && queueRef.current.length) {
+        const paths = [...new Set(queueRef.current)];
+        queueRef.current = [];
+        const { fileMap } = useCompressionStore.getState();
+        const available = paths.filter(
+          (path) => fileMap.get(path)?.status !== ICompressor.Status.Processing,
+        );
+        const busy = paths.filter((path) => !available.includes(path));
+        queueRef.current.push(...busy);
+        const candidates = await parsePaths(available, VALID_MEDIA_EXTS);
+        if (!activeRef.current) break;
+        if (candidates.length) {
+          const { files, setFiles } = useCompressionStore.getState();
+          // Replacing a changed source keeps one card per path.
+          const incoming = new Set(candidates.map((file) => file.path));
+          candidates.forEach((file) => {
+            file.status = ICompressor.Status.Processing;
+          });
+          setFiles([...files.filter((file) => !incoming.has(file.path)), ...candidates]);
+          void handleCompress(candidates);
+        }
+        if (busy.length) break;
+      }
+    } catch (error) {
+      captureError(error);
+    } finally {
+      drainingRef.current = false;
+      if (queueRef.current.length && activeRef.current) throttledProcessData();
     }
   });
 
@@ -235,6 +272,7 @@ function CompressionWatch() {
   }
 
   useEffect(() => {
+    activeRef.current = true;
     const { watchingFolder } = useCompressionStore.getState();
     const ctrl = new AbortController();
     ctrlRef.current = ctrl;
@@ -334,6 +372,9 @@ function CompressionWatch() {
     handleWatch();
     window.addEventListener('visibilitychange', handlePageVisible);
     return () => {
+      activeRef.current = false;
+      queueRef.current = [];
+      throttledProcessData.cancel();
       ctrl.abort();
       ctrlRef.current = null;
       window.removeEventListener('visibilitychange', handlePageVisible);

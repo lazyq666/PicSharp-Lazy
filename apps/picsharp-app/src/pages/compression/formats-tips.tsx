@@ -2,6 +2,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { CircleHelpIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { VALID_VIDEO_EXTS } from '@/constants';
 import { useI18n } from '@/i18n';
 
 export default function FormatsTips() {
@@ -39,6 +40,16 @@ export default function FormatsTips() {
             {['PNG', 'JPEG', 'WebP/Animated WebP', 'AVIF', 'TIFF', 'GIF', 'SVG'].map((format) => (
               <Badge key={format} variant='midnight' className='font-normal'>
                 {format}
+              </Badge>
+            ))}
+          </div>
+        </div>
+        <div className='mt-2 text-center'>
+          <p className='mb-2 text-sm text-slate-500'>{t('video.formats')}</p>
+          <div className='flex flex-wrap justify-center gap-2'>
+            {VALID_VIDEO_EXTS.map((format) => (
+              <Badge key={format} variant='midnight' className='font-normal'>
+                {format.toUpperCase()}
               </Badge>
             ))}
           </div>

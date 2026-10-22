@@ -7,6 +7,8 @@ import { useNavigate } from '@/hooks/useNavigate';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useI18n } from '@/i18n';
+import { cancelVideo } from '@/utils/video';
+import { ICompressor } from '@/utils/compressor';
 import { AppContext } from '@/routes';
 
 function ToolbarExit(props: { mode: 'classic' | 'watch' }) {
@@ -14,7 +16,15 @@ function ToolbarExit(props: { mode: 'classic' | 'watch' }) {
   const { inCompressing } = useCompressionStore(useSelector(['inCompressing']));
   const t = useI18n();
   const { messageApi, notificationApi } = useContext(AppContext);
-  const handleExit = () => {
+  const handleExit = async () => {
+    await Promise.all(
+      useCompressionStore
+        .getState()
+        .files.filter(
+          (file) => file.mediaType === 'video' && file.status === ICompressor.Status.Processing,
+        )
+        .map((file) => cancelVideo(file.path)),
+    );
     if (props.mode === 'classic') {
       navigate('/compression/classic/guide');
     } else {

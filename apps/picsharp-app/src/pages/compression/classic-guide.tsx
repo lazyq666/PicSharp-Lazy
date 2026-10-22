@@ -4,12 +4,12 @@ import { isFunction } from 'radash';
 import { open } from '@tauri-apps/plugin-dialog';
 import { parsePaths } from '../../utils/fs';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
-import { Folder, Upload } from 'lucide-react';
+import { Folder, Upload, History } from 'lucide-react';
 import useCompressionStore from '../../store/compression';
 import { CompressionContext } from '.';
 import { isValidArray, sleep } from '@/utils';
 import { useNavigate } from '@/hooks/useNavigate';
-import { VALID_IMAGE_EXTS } from '@/constants';
+import { VALID_MEDIA_EXTS } from '@/constants';
 import { useI18n } from '@/i18n';
 import { Button } from '@/components/ui/button';
 import message from '@/components/message';
@@ -18,6 +18,7 @@ import { downloadDir } from '@tauri-apps/api/path';
 import { AppContext } from '@/routes';
 import UploadWidget from '@/components/animated-icon/upload-widget';
 import FormatsTips from './formats-tips';
+import { restoreVideoHistory } from '@/utils/video';
 import { useReport } from '@/hooks/useReport';
 
 function ClassicCompressionGuide() {
@@ -32,20 +33,25 @@ function ClassicCompressionGuide() {
   const handleFiles = async (paths: string[] | null) => {
     if (!isValidArray(paths)) return;
     progressRef.current?.show(true);
-    const files = await parsePaths(paths!, VALID_IMAGE_EXTS);
-    if (!isValidArray(files)) {
+    try {
+      const files = await parsePaths(paths!, VALID_MEDIA_EXTS);
+      if (!isValidArray(files)) {
+        progressRef.current?.done();
+        message.info({
+          title: t('common.no_image_to_compress'),
+        });
+        return;
+      }
+      useCompressionStore.getState().setWorking(true);
+      useCompressionStore.getState().setFiles(files);
+      navigate('/compression/classic/workspace');
+      setTimeout(() => {
+        progressRef.current?.done();
+      }, 100);
+    } catch (error) {
+      messageApi?.error(String(error));
       progressRef.current?.done();
-      message.info({
-        title: t('common.no_image_to_compress'),
-      });
-      return;
     }
-    useCompressionStore.getState().setWorking(true);
-    useCompressionStore.getState().setFiles(files);
-    navigate('/compression/classic/workspace');
-    setTimeout(() => {
-      progressRef.current?.done();
-    }, 100);
   };
 
   const handleSelectFile = async () => {
@@ -54,8 +60,8 @@ function ClassicCompressionGuide() {
       directory: false,
       filters: [
         {
-          name: 'Image Files',
-          extensions: VALID_IMAGE_EXTS,
+          name: 'Images & Videos',
+          extensions: VALID_MEDIA_EXTS,
         },
       ],
     });
@@ -172,6 +178,26 @@ function ClassicCompressionGuide() {
                   <Button onClick={handleSelectFile} variant='secondary'>
                     <Upload size={18} />
                     {t('page.compression.classic.upload_file')}
+                  </Button>
+                  <Button
+                    variant='secondary'
+                    onClick={async () => {
+                      try {
+                        const files = await restoreVideoHistory();
+                        if (!files.length) {
+                          messageApi?.info(t('video.history_empty'));
+                          return;
+                        }
+                        useCompressionStore.getState().setFiles(files);
+                        useCompressionStore.getState().setWorking(true);
+                        navigate('/compression/classic/workspace');
+                      } catch (error) {
+                        messageApi?.error(String(error));
+                      }
+                    }}
+                  >
+                    <History size={18} />
+                    {t('video.history')}
                   </Button>
                   <Button onClick={handleSelectDirectory} variant='secondary'>
                     <Folder size={18} />

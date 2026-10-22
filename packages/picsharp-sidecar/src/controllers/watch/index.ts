@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import { parse } from 'node:path';
-import { VALID_IMAGE_EXTS } from '../../constants';
+import { createMediaEvents, isMedia, isVideoOutput } from './media';
 import { jsonBigInt } from '../../utils';
 import { watch, Event } from 'dirspy';
 
@@ -14,14 +13,26 @@ app.post('/new-images', (c) => {
       const { path, ignores = [] } = await c.req.json<{ path: string; ignores: string[] }>();
       let ready = false;
       let abort = false;
+      const mediaEvents = createMediaEvents((payload) => {
+        if (!abort)
+          void stream
+            .writeSSE({
+              data: JSON.stringify(payload, jsonBigInt),
+              event: 'add',
+              id: (++id).toString(),
+            })
+            .catch(() => {
+              mediaEvents.close();
+            });
+      });
       const watcher = await watch(path, {
         ignore(path) {
-          const ext = parse(path).ext;
-          return ignores.some((ignore) => path.includes(ignore)) || !VALID_IMAGE_EXTS.includes(ext);
+          // Do not filter directories by extension: newly created subfolders must be watched.
+          return ignores.some((ignore) => path.includes(ignore)) || isVideoOutput(path);
         },
         fileFilter: (entry) => {
           if (ignores.some((ignore) => entry.fullPath.includes(ignore))) return false;
-          return VALID_IMAGE_EXTS.includes(parse(entry.path).ext);
+          return isMedia(entry.path);
         },
         directoryFilter: (entry) => {
           return !ignores.includes(entry.basename);
@@ -29,6 +40,7 @@ app.post('/new-images', (c) => {
       });
       stream.onAbort(() => {
         console.log(`Watch <${path}> aborted`);
+        mediaEvents.close();
         watcher.close();
         stream.close();
         abort = true;
@@ -44,14 +56,10 @@ app.post('/new-images', (c) => {
               id: (++id).toString(),
             });
             watcher
-              .on(Event.ADD, (payload) => {
-                stream.writeSSE({
-                  data: JSON.stringify(payload, jsonBigInt),
-                  event: 'add',
-                  id: (++id).toString(),
-                });
-              })
+              .on(Event.ADD, (payload) => mediaEvents.add({ ...payload }))
+              .on(Event.CHANGE, (_oldPayload, newPayload) => mediaEvents.add({ ...newPayload }))
               .on(Event.SELF_ENOENT, () => {
+                mediaEvents.close();
                 stream.writeSSE({
                   data: '',
                   event: 'self-enoent',

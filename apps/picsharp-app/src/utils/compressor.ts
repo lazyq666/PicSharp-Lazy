@@ -1,4 +1,5 @@
 import Scheduler from './scheduler';
+import { compressVideo } from './video';
 import {
   CompressionMode,
   ConvertFormat,
@@ -46,6 +47,7 @@ export namespace ICompressor {
   export enum Status {
     // 待处理
     Pending = 'pending',
+    Cancelled = 'cancelled',
     // 处理中
     Processing = 'processing',
     // 完成
@@ -593,6 +595,18 @@ export default class Compressor {
     onFulfilled?: (res: ICompressor.ResultItem) => void,
     onRejected?: (res: ICompressor.FailedItem) => void,
   ): Promise<ICompressor.ResultItem[]> => {
+    const videoTasks = files
+      .filter((file) => file.mediaType === 'video')
+      .map(async (file) => {
+        try {
+          const result = await compressVideo(file);
+          onFulfilled?.(result);
+          return result;
+        } catch (error) {
+          onRejected?.({ input_path: file.path, error: String(error) });
+          return null;
+        }
+      });
     const scheduler = new Scheduler({
       concurrency: this.options.concurrency,
     })
@@ -602,8 +616,9 @@ export default class Compressor {
       .addListener(Scheduler.Events.Rejected, (res) => {
         isFunction(onRejected) && onRejected(res);
       })
-      .setTasks(this.createTasks(files));
-    return scheduler.run();
+      .setTasks(this.createTasks(files.filter((file) => file.mediaType !== 'video')));
+    const [images, videos] = await Promise.all([scheduler.run(), Promise.all(videoTasks)]);
+    return [...images, ...videos.filter(Boolean)];
   };
 
   private process = async <T extends ICompressor.CompressType>(

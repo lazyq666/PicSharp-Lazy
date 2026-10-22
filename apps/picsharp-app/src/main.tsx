@@ -9,11 +9,17 @@ import { isDev } from './utils';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
+const app = <App />;
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <AptabaseProvider
-    appKey={__PICSHARP_ABE_KEY__}
-    options={{ isDebug: isDev, appVersion: __PICSHARP_VERSION__ }}
-  >
-    <App />,
-  </AptabaseProvider>,
+  __PICSHARP_ABE_KEY__ ? (
+    <AptabaseProvider
+      appKey={__PICSHARP_ABE_KEY__}
+      options={{ isDebug: isDev, appVersion: __PICSHARP_VERSION__ }}
+    >
+      {app}
+    </AptabaseProvider>
+  ) : (
+    app
+  ),
 );

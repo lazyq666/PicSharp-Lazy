@@ -4,6 +4,7 @@ import {
   SETTINGS_FILE_NAME,
   DEFAULT_SETTINGS_FILE_NAME,
   SettingsKey,
+  VideoPreset,
   CompressionOutputMode,
   TinypngMetadata,
   CompressionMode,
@@ -20,6 +21,8 @@ import { withStorageDOMEvents } from './withStorageDOMEvents';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 interface SettingsState {
+  [SettingsKey.VideoPreset]: VideoPreset;
+  [SettingsKey.VideoOutputFolder]: string;
   appDataDirPath: string;
   settingsFilePath: string;
   defaultSettingsFilePath: string;
@@ -73,6 +76,8 @@ type SettingsStore = SettingsState & SettingsAction;
 const useSettingsStore = create(
   persist<SettingsStore>(
     (set, get) => ({
+      [SettingsKey.VideoPreset]: 'compact',
+      [SettingsKey.VideoOutputFolder]: '',
       appDataDirPath: '',
       settingsFilePath: '',
       defaultSettingsFilePath: '',

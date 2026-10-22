@@ -10,7 +10,7 @@ import useCompressionStore from '@/store/compression';
 import useSettingsStore from '@/store/settings';
 import { isValidArray, isProd, isLinux, isMac } from '@/utils';
 import { parsePaths } from '@/utils/fs';
-import { VALID_IMAGE_EXTS, SettingsKey } from '@/constants';
+import { VALID_MEDIA_EXTS, SettingsKey } from '@/constants';
 import { useNavigate } from '@/hooks/useNavigate';
 import { spawnWindow } from '@/utils/window';
 import { useI18n } from '@/i18n';
@@ -52,7 +52,7 @@ export default function AppLayout() {
         const { setWorking, setFiles, setWatchingFolder, reset } = useCompressionStore.getState();
         reset();
         if (mode === 'ns_compress') {
-          const fileInfos = await parsePaths(paths, VALID_IMAGE_EXTS);
+          const fileInfos = await parsePaths(paths, VALID_MEDIA_EXTS);
           setWorking(true);
           setFiles(fileInfos);
           navigate('/compression/classic/workspace');

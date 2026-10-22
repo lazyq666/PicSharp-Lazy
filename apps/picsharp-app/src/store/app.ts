@@ -108,7 +108,7 @@ const useAppStore = create(
               });
               console.log(`[Init Sidecar Success]: PID ${process.pid}`);
             } else {
-              set({ sidecar: { origin: 'http://localhost:3000', spawning: false } });
+              set({ sidecar: { origin: 'http://localhost:43127', spawning: false } });
             }
           } else {
             console.log(`[Sub Window Init Sidecar Success]: Server: ${get().sidecar?.origin}`);

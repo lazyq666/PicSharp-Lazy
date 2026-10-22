@@ -1,9 +1,10 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { ICompressor } from './compressor';
 import { isValidArray } from '.';
-import { CompressionOutputMode } from '@/constants';
+import { CompressionOutputMode, VALID_VIDEO_EXTS } from '@/constants';
 import { copyFile, exists, remove } from '@tauri-apps/plugin-fs';
 import { isMac, isLinux } from '.';
+import useSettingsStore from '@/store/settings';
 
 const mags = ' KMGTPEZY';
 export function humanSize(bytes: number) {
@@ -43,31 +44,43 @@ export async function parsePaths(paths: string[], validExts: string[]) {
     validExts,
   });
   if (isValidArray(candidates)) {
-    return candidates.map<FileInfo>((item) => {
-      return {
-        id: item.id,
-        path: item.path,
-        assetPath: convertFileSrc(item.path),
-        name: item.name,
-        parentDir: item.base_dir,
-        bytesSize: item.bytes_size,
-        formattedBytesSize: humanSize(item.bytes_size),
-        diskSize: item.disk_size,
-        formattedDiskSize: humanSize(item.disk_size),
-        mimeType: item.mime_type,
-        ext: item.ext,
-        compressedBytesSize: 0,
-        formattedCompressedBytesSize: '',
-        compressedDiskSize: 0,
-        formattedCompressedDiskSize: '',
-        compressRate: '',
-        outputPath: '',
-        status: ICompressor.Status.Pending,
-        originalTempPath: '',
-        originalTempPathConverted: '',
-        ssim: 0,
-      };
-    });
+    const videos = candidates.filter((item) => VALID_VIDEO_EXTS.includes(item.ext));
+    if (videos.length) {
+      const { video_preset, video_output_folder } = useSettingsStore.getState();
+      await invoke('ipc_register_videos', {
+        paths: [...new Set(videos.map((file) => file.path))],
+        preset: video_preset,
+        directory: video_output_folder || null,
+      });
+    }
+    return [...new Map(candidates.map((item) => [item.path, item])).values()].map<FileInfo>(
+      (item) => {
+        return {
+          mediaType: VALID_VIDEO_EXTS.includes(item.ext) ? 'video' : 'image',
+          id: item.id,
+          path: item.path,
+          assetPath: convertFileSrc(item.path),
+          name: item.name,
+          parentDir: item.base_dir,
+          bytesSize: item.bytes_size,
+          formattedBytesSize: humanSize(item.bytes_size),
+          diskSize: item.disk_size,
+          formattedDiskSize: humanSize(item.disk_size),
+          mimeType: item.mime_type,
+          ext: item.ext,
+          compressedBytesSize: 0,
+          formattedCompressedBytesSize: '',
+          compressedDiskSize: 0,
+          formattedCompressedDiskSize: '',
+          compressRate: '',
+          outputPath: '',
+          status: ICompressor.Status.Pending,
+          originalTempPath: '',
+          originalTempPathConverted: '',
+          ssim: 0,
+        };
+      },
+    );
   }
   return [];
 }
