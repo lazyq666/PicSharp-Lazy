@@ -99,7 +99,7 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: pnpm exec tauri build --ci --target ${{ matrix.target }} --bundles app,dmg --config src-tauri/tauri.macos.release.conf.json
+        run: pnpm exec tauri build --ci --target ${{ matrix.target }} --bundles app --config src-tauri/tauri.macos.release.conf.json
       - name: Verify app and collect release files
         env:
           RELEASE_TARGET: ${{ matrix.target }}
@@ -108,6 +108,8 @@ jobs:
         run: |
           bundle="target/$RELEASE_TARGET/release/bundle"
           codesign --verify --deep --strict "$bundle/macos/PicSharp.app"
+          mkdir -p "$bundle/zip"
+          ditto -c -k --sequesterRsrc --keepParent "$bundle/macos/PicSharp.app" "$bundle/zip/PicSharp.zip"
           python3 scripts/collect-macos-release.py "$bundle" release-assets "$RELEASE_VERSION" "$RELEASE_ARCH"
       - uses: actions/upload-artifact@v4
         with:

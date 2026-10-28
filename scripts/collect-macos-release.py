@@ -9,7 +9,7 @@ def collect(bundle, destination, version, arch):
     if arch not in ('arm64', 'x64'):
         raise ValueError('Unsupported Mac architecture')
     files = [(list((bundle / 'macos').glob('*.app.tar.gz')), '.app.tar.gz'),
-             (list((bundle / 'dmg').glob('*.dmg')), '.dmg')]
+             (list((bundle / 'zip').glob('*.zip')), '.zip')]
     for candidates, suffix in files:
         if len(candidates) != 1:
             raise ValueError(f'Expected exactly one {suffix} bundle, found {len(candidates)}')

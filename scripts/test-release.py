@@ -46,7 +46,7 @@ class ReleaseGates(unittest.TestCase):
             archive = self.assets / f'PicSharp-Lazy_{self.version}_{arch}.app.tar.gz'
             archive.write_bytes(f'signed test payload for {arch}'.encode())
             subprocess.run([str(TAURI), 'signer', 'sign', str(archive)], env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            (self.assets / f'PicSharp-Lazy_{self.version}_{arch}.dmg').write_bytes(b'installer fixture')
+            (self.assets / f'PicSharp-Lazy_{self.version}_{arch}.zip').write_bytes(b'installer fixture')
 
     def test_complete_signed_pair_uses_only_fork_urls(self):
         result = manifest.create_manifest(self.assets, self.version)
@@ -88,18 +88,18 @@ class ReleaseGates(unittest.TestCase):
             manifest.create_manifest(self.assets, '0.0.0')
 
     def test_missing_installer_is_rejected(self):
-        next(self.assets.glob('*arm64.dmg')).unlink()
+        next(self.assets.glob('*arm64.zip')).unlink()
         with self.assertRaises(ValueError):
             manifest.create_manifest(self.assets, self.version)
 
     def test_collect_preserves_archive_signature_and_unique_architecture(self):
         bundle = self.root / 'bundle'
         (bundle / 'macos').mkdir(parents=True)
-        (bundle / 'dmg').mkdir()
+        (bundle / 'zip').mkdir()
         source = next(self.assets.glob('*arm64.app.tar.gz'))
         shutil.copy2(source, bundle / 'macos/PicSharp.app.tar.gz')
         shutil.copy2(str(source) + '.sig', bundle / 'macos/PicSharp.app.tar.gz.sig')
-        (bundle / 'dmg/PicSharp.dmg').write_bytes(b'installer')
+        (bundle / 'zip/PicSharp.zip').write_bytes(b'installer')
         destination = self.root / 'collected'
         collector.collect(bundle, destination, self.version, 'arm64')
         self.assertEqual(source.read_bytes(), next(destination.glob('*.app.tar.gz')).read_bytes())

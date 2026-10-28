@@ -32,7 +32,7 @@ def create_manifest(directory, version):
             signature = Path(str(archive) + '.sig').read_text().strip()
             if not archive.is_file() or archive.stat().st_size == 0:
                 raise ValueError(f'Missing or empty updater archive: {name}')
-            installer = directory / f'PicSharp-Lazy_{version}_{arch}.dmg'
+            installer = directory / f'PicSharp-Lazy_{version}_{arch}.zip'
             if not installer.is_file() or installer.stat().st_size == 0:
                 raise ValueError(f'Missing or empty installer: {installer.name}')
             signature_file.write_bytes(base64.b64decode(signature, validate=True))

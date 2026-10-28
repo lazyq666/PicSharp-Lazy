@@ -2,6 +2,8 @@
 
 本 fork 的更新源固定为 `https://github.com/lazyq666/PicSharp-Lazy/releases/latest/download/latest.json`，只信任本 fork 的更新签名公钥，不再使用原作者的更新地址或签名身份。
 
+首次安装包使用保留 macOS 签名及资源信息的 ZIP：解压后将 `PicSharp.app` 拖入“应用程序”。应用内自动更新使用独立签名的 `.app.tar.gz`。CI 不依赖 Finder 或磁盘映像制作。
+
 首批发布平台为 Apple Silicon（arm64）与 Intel（x64）Mac，要求 macOS 26 或更新系统。视频引擎采用对应构建机的 Homebrew FFmpeg，图片服务使用内置官方 Node.js 和锁定的生产依赖；用户安装后不需要自行安装这些组件。
 
 ## 首次迁移
