@@ -201,6 +201,13 @@ async fn real_ffmpeg_presets_audio_padding_cancellation_and_hdr() {
             filter_video_inputs(vec![output.path.to_string_lossy().into_owned()], &root, &[])
                 .is_empty()
         );
+        let renamed = root.join(format!("renamed-{}.mp4", nanoid::nanoid!()));
+        std::fs::rename(&output.path, &renamed).unwrap();
+        assert!(
+            filter_video_inputs(vec![renamed.to_string_lossy().into_owned()], &root, &[])
+                .is_empty(),
+            "a real encoded output remains protected after renaming"
+        );
     }
     assert_eq!(std::fs::read(&source).unwrap(), original);
     let thumb = root.join("preview.jpg");
@@ -401,6 +408,176 @@ fn completed_watch_job(source: PathBuf, output: PathBuf) -> Job {
             log: PathBuf::new(),
         }),
     }
+}
+
+#[test]
+fn renamed_video_output_stays_excluded_from_watch_after_restart() {
+    let root = std::env::temp_dir().join(format!("picsharp-output-rename-{}", nanoid::nanoid!()));
+    let service = VideoService::new(root.clone());
+    let output = root.join("A.mp4");
+    let renamed = root.join("B.mp4");
+    std::fs::write(&output, b"compressed video").unwrap();
+    let saved = retention::remember_output(&root, &output).unwrap();
+    let modified = std::fs::metadata(&output).unwrap().modified().unwrap();
+    {
+        let mut data = service.data.lock().unwrap();
+        data.jobs
+            .push(completed_watch_job(root.join("source.mov"), output.clone()));
+        service.save(&mut data).unwrap();
+    }
+    std::fs::rename(&output, &renamed).unwrap();
+    let current = retention::stamp(&renamed).unwrap();
+    assert!(
+        filter_video_inputs(
+            vec![renamed.to_string_lossy().into_owned()],
+            &root,
+            &[saved.clone()],
+        )
+        .is_empty(),
+        "renaming a compressed video must not enqueue it for compression again"
+    );
+    assert_eq!(
+        check_watch_input(&service, &renamed, current.version.as_deref()),
+        Err(WATCH_INPUT_CHANGED.into())
+    );
+    drop(service);
+    let restored = VideoService::new(root.clone());
+    assert_eq!(
+        check_watch_input(&restored, &renamed, current.version.as_deref()),
+        Err(WATCH_INPUT_CHANGED.into())
+    );
+    // The disk identity record, not the bounded job history, survives another move.
+    restored.data.lock().unwrap().jobs.clear();
+    let moved_folder = root.join("renamed-folder");
+    std::fs::create_dir(&moved_folder).unwrap();
+    let moved = moved_folder.join("C.MOV");
+    std::fs::rename(&renamed, &moved).unwrap();
+    assert!(filter_video_inputs(vec![moved.to_string_lossy().into_owned()], &root, &[]).is_empty());
+    let current = retention::stamp(&moved).unwrap();
+    assert_eq!(
+        check_watch_input(&restored, &moved, current.version.as_deref()),
+        Err(WATCH_INPUT_CHANGED.into())
+    );
+    // A different file at the original name is still a new input, even with the
+    // same length and restored mtime. Neither path nor identity is a blanket ban.
+    std::fs::write(&output, b"replacement file").unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(&output)
+        .unwrap()
+        .set_modified(modified)
+        .unwrap();
+    let paths = vec![output.to_string_lossy().into_owned()];
+    assert_eq!(filter_video_inputs(paths.clone(), &root, &[]), paths);
+    // An in-place edit of the renamed output must also remain eligible.
+    std::fs::write(&moved, b"replacement file").unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(&moved)
+        .unwrap()
+        .set_modified(modified)
+        .unwrap();
+    let changed = retention::stamp(&moved).unwrap();
+    assert!(check_watch_input(&restored, &moved, changed.version.as_deref()).is_ok());
+    let paths = vec![moved.to_string_lossy().into_owned()];
+    assert_eq!(filter_video_inputs(paths.clone(), &root, &[saved]), paths);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn video_output_identity_handles_restart_before_lookup_and_history_fallback() {
+    let root = std::env::temp_dir().join(format!("picsharp-rename-restart-{}", nanoid::nanoid!()));
+    let service = VideoService::new(root.clone());
+    let output = root.join("A.mp4");
+    let renamed = root.join("B.mp4");
+    std::fs::write(&output, b"compressed video").unwrap();
+    let saved = retention::remember_output(&root, &output).unwrap();
+    drop(service);
+    std::fs::rename(&output, &renamed).unwrap();
+    let restored = VideoService::new(root.clone());
+    let current = retention::stamp(&renamed).unwrap();
+    assert_eq!(
+        check_watch_input(&restored, &renamed, current.version.as_deref()),
+        Err(WATCH_INPUT_CHANGED.into())
+    );
+    // A failed disk record still has the same rename-aware history fallback.
+    let empty_records = root.join("unavailable-records");
+    assert!(filter_video_inputs(
+        vec![renamed.to_string_lossy().into_owned()],
+        &empty_records,
+        &[saved.clone()]
+    )
+    .is_empty());
+    let fallback_service = VideoService::new(empty_records);
+    let mut job = completed_watch_job(root.join("source.mov"), renamed.clone());
+    job.output.as_mut().unwrap().stamp = Some(saved);
+    fallback_service.data.lock().unwrap().jobs.push(job);
+    assert_eq!(
+        check_watch_input(&fallback_service, &renamed, current.version.as_deref()),
+        Err(WATCH_INPUT_CHANGED.into())
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn video_output_metadata_changes_are_verified_and_legacy_outputs_upgrade_before_rename() {
+    let root = std::env::temp_dir().join(format!("picsharp-rename-legacy-{}", nanoid::nanoid!()));
+    std::fs::create_dir_all(&root).unwrap();
+    let output = root.join("A.mp4");
+    std::fs::write(&output, b"AAAA").unwrap();
+    let legacy = retention::stamp(&output).unwrap();
+    retention::save_stamp(&root, &legacy).unwrap();
+    // Startup migration may add fingerprints only to an unchanged legacy file.
+    let upgraded = retention::restore_output(&root, &output, 4, Some(&legacy), false).unwrap();
+    assert!(serde_json::to_value(&upgraded).unwrap()["fingerprint"].is_string());
+    let changed_time = std::time::SystemTime::now() + Duration::from_secs(2);
+    std::fs::File::options()
+        .write(true)
+        .open(&output)
+        .unwrap()
+        .set_modified(changed_time)
+        .unwrap();
+    assert!(
+        retention::is_output(&root, &output),
+        "timestamp-only changes preserve content"
+    );
+    let renamed = root.join("B.mp4");
+    std::fs::rename(&output, &renamed).unwrap();
+    assert!(retention::is_output(&root, &renamed));
+    // An atomic replacement has a different identity even if its content is equal.
+    std::fs::write(&output, b"AAAA").unwrap();
+    std::fs::rename(&output, &renamed).unwrap();
+    assert!(!retention::is_output(&root, &renamed));
+    // Unverifiable old records cannot bless new bytes after a metadata change.
+    let legacy = retention::stamp(&renamed).unwrap();
+    retention::save_stamp(&root, &legacy).unwrap();
+    std::fs::rename(&renamed, &output).unwrap();
+    assert!(!retention::is_output(&root, &output));
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn video_fingerprinting_rejects_cancellation_and_files_changed_during_read() {
+    let root =
+        std::env::temp_dir().join(format!("picsharp-fingerprint-race-{}", nanoid::nanoid!()));
+    std::fs::create_dir_all(&root).unwrap();
+    let output = root.join("output.mp4");
+    std::fs::write(&output, vec![b'A'; 128 * 1024]).unwrap();
+    assert_eq!(
+        retention::fingerprinted_stamp_cancellable(&output, || true),
+        Err(engine::CANCELLED.into())
+    );
+    let changed = std::cell::Cell::new(false);
+    assert_eq!(
+        retention::fingerprinted_stamp_cancellable(&output, || {
+            if !changed.replace(true) {
+                std::fs::write(&output, b"replacement").unwrap();
+            }
+            false
+        }),
+        Err(WATCH_INPUT_CHANGED.into())
+    );
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

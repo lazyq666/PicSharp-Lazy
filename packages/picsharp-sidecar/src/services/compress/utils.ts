@@ -103,6 +103,9 @@ export async function saveImage(
       );
     } else if (inputPath !== outputPath) {
       await imageOutputRecords().publish(outputPath, (temporary) => copyFile(inputPath, temporary));
+    } else if (options.watch_version) {
+      // A successful attempt that keeps the original must not repeat on preview access.
+      await imageOutputRecords().remember(outputPath, { version: options.watch_version });
     }
     return { availableCompressRate, originalEctypePath, compressedSize, compressionRate };
   } finally {

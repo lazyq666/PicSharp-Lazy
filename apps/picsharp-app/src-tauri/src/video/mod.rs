@@ -358,7 +358,7 @@ pub async fn ipc_compress_video(
     }
     let path = dunce::canonicalize(path).map_err(|e| format!("无法读取视频：{e}"))?;
     validate_extension(&path)?;
-    check_watch_input(&state, &path, watch_version.as_deref())?;
+    check_watch_input_async(&state, &path, watch_version.as_deref()).await?;
     let directory = directory
         .filter(|d| !d.trim().is_empty())
         .map(PathBuf::from)
@@ -412,7 +412,7 @@ pub async fn ipc_compress_video(
         let _media = state.media_permit(2, &cancel).await?;
         // A job may have waited behind a long encode. Recheck its exact version
         // here, not just when its file-system event first arrived.
-        check_watch_input(&state, &path, watch_version.as_deref())?;
+        check_watch_input_async(&state, &path, watch_version.as_deref()).await?;
         state.update(&app, &id, true, |j| j.status = "processing".into());
         let engine = discover(&app)?;
         let info = engine.inspect(&path, &cancel).await?;
@@ -506,7 +506,6 @@ fn filter_video_inputs(
     root: &Path,
     fallback: &[retention::OutputStamp],
 ) -> Vec<String> {
-    let fallback: HashMap<_, _> = fallback.iter().map(|stamp| (&stamp.path, stamp)).collect();
     paths
         .into_iter()
         .filter(|path| {
@@ -514,22 +513,36 @@ fn filter_video_inputs(
             if !path
                 .extension()
                 .and_then(|ext| ext.to_str())
-                .is_some_and(|ext| ext.eq_ignore_ascii_case("mp4"))
+                .is_some_and(is_video_extension)
             {
                 return true;
             }
             let Ok(current) = retention::stamp(path) else {
                 return false;
             };
-            fallback
-                .get(&current.path)
-                .is_none_or(|saved| **saved != current)
-                && !retention::is_output_stamp(root, &current)
+            !retention::is_output_stamp(root, &current)
+                && !fallback.iter().any(|saved| saved.matches(&current))
         })
         .collect()
 }
 
 const WATCH_INPUT_CHANGED: &str = "PICSHARP_WATCH_INPUT_CHANGED";
+async fn check_watch_input_async(
+    state: &Arc<VideoService>,
+    path: &Path,
+    version: Option<&str>,
+) -> Result<(), String> {
+    let Some(version) = version else {
+        return Ok(());
+    };
+    let state = state.clone();
+    let path = path.to_owned();
+    let version = version.to_owned();
+    tokio::task::spawn_blocking(move || check_watch_input(&state, &path, Some(&version)))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
 fn check_watch_input(
     state: &VideoService,
     path: &Path,
@@ -539,11 +552,23 @@ fn check_watch_input(
         return Ok(());
     };
     let current = retention::stamp(path).map_err(|_| WATCH_INPUT_CHANGED.to_string())?;
-    let generated = retention::is_output_stamp(&state.root, &current)
-        || state.data.lock().unwrap().jobs.iter().any(|job| {
-            job.output.as_ref().and_then(|output| output.stamp.as_ref()) == Some(&current)
-        });
-    if current.version.as_deref() != Some(version) || generated {
+    if current.version.as_deref() != Some(version) {
+        return Err(WATCH_INPUT_CHANGED.into());
+    }
+    if retention::is_output_stamp(&state.root, &current) {
+        return Err(WATCH_INPUT_CHANGED.into());
+    }
+    // Clone the bounded fallback before any content verification; don't hold the
+    // job lock while reading a potentially large video.
+    let fallback: Vec<_> = state
+        .data
+        .lock()
+        .unwrap()
+        .jobs
+        .iter()
+        .filter_map(|job| job.output.as_ref().and_then(|output| output.stamp.clone()))
+        .collect();
+    if fallback.iter().any(|saved| saved.matches(&current)) || !current.unchanged(path) {
         return Err(WATCH_INPUT_CHANGED.into());
     }
     Ok(())

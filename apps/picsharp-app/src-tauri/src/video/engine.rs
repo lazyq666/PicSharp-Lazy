@@ -447,6 +447,16 @@ impl Engine {
             return Err("输出完整性检查未通过，未保存成品；原视频未改动。".into());
         }
         check_cancel(cancel)?;
+        let rendered_path = temp.0.clone();
+        let hash_cancel = cancel.clone();
+        let rendered = tokio::task::spawn_blocking(move || {
+            super::retention::fingerprinted_stamp_cancellable(&rendered_path, || {
+                hash_cancel.load(Ordering::SeqCst)
+            })
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+        check_cancel(cancel)?;
         let path = publish(
             &temp.0,
             directory,
@@ -457,7 +467,7 @@ impl Engine {
         )?;
         // Removing the staging hard link changes ctime; stamp only the final version.
         drop(temp);
-        let stamp = Some(super::retention::stamp(&path)?);
+        let stamp = Some(super::retention::published_stamp(&path, &rendered)?);
         Ok(Output {
             path,
             bytes,

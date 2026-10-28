@@ -55,6 +55,8 @@ export async function processSvg(payload: SvgTaskPayload) {
       await imageOutputRecords().publish(newOutputPath, (temporary) =>
         copyFile(input_path, temporary),
       );
+    } else if (options.watch_version) {
+      await imageOutputRecords().remember(newOutputPath, { version: options.watch_version });
     }
     return {
       input_path,

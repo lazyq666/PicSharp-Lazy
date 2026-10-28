@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, extname, join } from 'node:path';
-import { canonicalPath, readFileVersion } from './file-version';
+import { canonicalPath, readFileFingerprint, readFileVersion } from './file-version';
 
 export interface FileCandidate {
   path: string;
@@ -15,7 +15,10 @@ export class WatchInputChanged extends Error {
   }
 }
 
-interface OutputRecord extends FileCandidate {}
+interface OutputRecord extends FileCandidate {
+  // Older records have no fingerprint and can only identify their exact version.
+  fingerprint?: string;
+}
 interface PendingRecord {
   path: string;
   pid: number;
@@ -57,25 +60,39 @@ export class OutputRecords {
     const stored = await this.read<OutputRecord>(target);
     if (!stored || stored.path !== key) return 'input';
     const current = version ?? (await readFileVersion(key));
-    return stored.version === current ? 'output' : 'input';
+    if (stored.version === current) return 'output';
+    if (!current || !stored.fingerprint) return 'input';
+    // ctime also changes for permissions/preview attributes, not just image edits.
+    // Keep the original record: an attribute update must not bless new bytes, and
+    // a delayed check must not overwrite a newer compression's record.
+    const snapshot = await readFileFingerprint(key, current);
+    if (!snapshot) return 'writing';
+    return snapshot.fingerprint === stored.fingerprint ? 'output' : 'input';
   }
 
   async isInput(candidate: FileCandidate): Promise<boolean> {
     const current = await readFileVersion(candidate.path);
     return (
-      current === candidate.version && (await this.status(candidate.path, current)) === 'input'
+      current === candidate.version &&
+      (await this.status(candidate.path, current)) === 'input' &&
+      (await readFileVersion(candidate.path)) === candidate.version
     );
   }
 
-  async remember(path: string): Promise<void> {
+  async remember(
+    path: string,
+    expected?: { version?: string; fingerprint?: string },
+  ): Promise<void> {
     const key = pathKey(await canonicalPath(path));
-    const version = await readFileVersion(key);
-    if (!version) throw new Error(`无法登记压缩成品：${path}`);
+    const snapshot = await readFileFingerprint(key, expected?.version);
+    if (!snapshot || (expected?.fingerprint && snapshot.fingerprint !== expected.fingerprint)) {
+      throw new WatchInputChanged();
+    }
     await mkdir(this.directory, { recursive: true });
     const target = this.recordPath(key);
     const temporary = target + '.' + randomUUID() + '.tmp';
     try {
-      await writeFile(temporary, JSON.stringify({ path: key, version } satisfies OutputRecord));
+      await writeFile(temporary, JSON.stringify({ path: key, ...snapshot } satisfies OutputRecord));
       await rename(temporary, target);
     } finally {
       await rm(temporary, { force: true });
@@ -117,11 +134,15 @@ export class OutputRecords {
         { flag: 'wx' },
       );
       reserved = true;
+      // Capture the actual compressor output before exposing it at the user's path.
+      // If an export replaces it during registration, never mark that export as ours.
+      const rendered = await readFileFingerprint(temporary);
+      if (!rendered) throw new WatchInputChanged();
       if (expectedVersion && (await readFileVersion(key)) !== expectedVersion) {
         throw new WatchInputChanged();
       }
       await rename(temporary, key);
-      await this.remember(key);
+      await this.remember(key, { fingerprint: rendered.fingerprint });
     } finally {
       if (reserved) await rm(pending, { force: true });
     }

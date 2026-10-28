@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
     collections::HashSet,
     fs,
+    io::Read,
     path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -75,11 +77,42 @@ pub struct OutputStamp {
     modified_ns: u128,
     #[serde(default)]
     pub version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    fingerprint: Option<String>,
 }
 
 impl OutputStamp {
     pub fn unchanged(&self, path: &Path) -> bool {
-        stamp(path).is_ok_and(|current| current == *self)
+        stamp(path).is_ok_and(|current| self.same_version(&current))
+    }
+
+    fn same_version(&self, current: &Self) -> bool {
+        self.path == current.path
+            && self.version == current.version
+            && self.bytes == current.bytes
+            && self.modified_ns == current.modified_ns
+    }
+
+    fn identity(&self) -> Option<String> {
+        let mut fields = self.version.as_deref()?.split(':');
+        Some(format!("{}:{}", fields.next()?, fields.next()?))
+    }
+
+    // Rename changes path/ctime, so identity alone is only a lookup hint. Verify
+    // the bytes before accepting it, including edits preserving size and mtime.
+    pub fn matches(&self, current: &Self) -> bool {
+        if self.same_version(current) {
+            return true;
+        }
+        self.identity().is_some()
+            && self.identity() == current.identity()
+            && self.bytes == current.bytes
+            && self.fingerprint.as_ref().is_some_and(|fingerprint| {
+                fingerprinted_stamp(Path::new(&current.path)).is_ok_and(|verified| {
+                    current.same_version(&verified)
+                        && verified.fingerprint.as_ref() == Some(fingerprint)
+                })
+            })
     }
 
     fn changed_ns(&self) -> Option<u128> {
@@ -156,28 +189,98 @@ pub fn stamp(path: &Path) -> Result<OutputStamp, String> {
             .unwrap_or_default()
             .as_nanos(),
         version: Some(version),
+        fingerprint: None,
     })
 }
 
+// Only read generated outputs, or a candidate whose identity has a known output
+// record. Streaming keeps memory bounded even for multi-gigabyte videos.
+pub fn fingerprinted_stamp(path: &Path) -> Result<OutputStamp, String> {
+    fingerprinted_stamp_cancellable(path, || false)
+}
+
+pub fn fingerprinted_stamp_cancellable(
+    path: &Path,
+    cancelled: impl Fn() -> bool,
+) -> Result<OutputStamp, String> {
+    let mut snapshot = stamp(path)?;
+    let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
+    let mut hash = Sha256::new();
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        if cancelled() {
+            return Err(super::engine::CANCELLED.into());
+        }
+        let count = file.read(&mut buffer).map_err(|e| e.to_string())?;
+        if count == 0 {
+            break;
+        }
+        hash.update(&buffer[..count]);
+    }
+    if !snapshot.unchanged(path) {
+        return Err(super::WATCH_INPUT_CHANGED.into());
+    }
+    snapshot.fingerprint = Some(format!("sha256:{:x}", hash.finalize()));
+    Ok(snapshot)
+}
+
+// Publishing/removing a hard link changes ctime. Carry the fingerprint of our
+// private staging file only to the same published file identity and data version.
+pub fn published_stamp(path: &Path, rendered: &OutputStamp) -> Result<OutputStamp, String> {
+    let mut current = stamp(path)?;
+    if rendered.identity() != current.identity()
+        || rendered.bytes != current.bytes
+        || rendered.modified_ns != current.modified_ns
+    {
+        return Err(super::WATCH_INPUT_CHANGED.into());
+    }
+    current.fingerprint = rendered.fingerprint.clone();
+    Ok(current)
+}
+
 fn stamp_path(root: &Path, key: &str) -> PathBuf {
+    record_path(&root.join("outputs"), key)
+}
+
+fn record_path(directory: &Path, key: &str) -> PathBuf {
     // Stable FNV-1a filename, with the full path checked on reads to detect collisions.
     let hash = key.bytes().fold(0xcbf29ce484222325_u64, |hash, byte| {
         (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
     });
-    root.join("outputs").join(format!("{hash:016x}.json"))
+    directory.join(format!("{hash:016x}.json"))
+}
+
+fn identity_stamp_path(root: &Path, stamp: &OutputStamp) -> Option<PathBuf> {
+    Some(record_path(
+        &root.join("outputs/identities"),
+        &stamp.identity()?,
+    ))
+}
+
+fn read_stamp(target: &Path) -> Option<OutputStamp> {
+    fs::read(target)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
 }
 
 // Output provenance is not a cache: retain it on disk independently of the bounded
 // history so an old generated video can never re-enter a watched compression queue.
-// Lookup reads one small file, never the complete history or an unbounded RAM index.
+// Lookup reads at most two small records, without scanning all past outputs.
 pub fn remember_output(root: &Path, path: &Path) -> Result<OutputStamp, String> {
-    let stamp = stamp(path)?;
+    let stamp = fingerprinted_stamp(path)?;
     save_stamp(root, &stamp)?;
     Ok(stamp)
 }
 
 pub fn save_stamp(root: &Path, stamp: &OutputStamp) -> Result<(), String> {
-    let target = stamp_path(root, &stamp.path);
+    write_stamp(&stamp_path(root, &stamp.path), stamp)?;
+    if let Some(target) = identity_stamp_path(root, stamp) {
+        write_stamp(&target, stamp)?;
+    }
+    Ok(())
+}
+
+fn write_stamp(target: &Path, stamp: &OutputStamp) -> Result<(), String> {
     fs::create_dir_all(target.parent().unwrap()).map_err(|e| e.to_string())?;
     let temporary = target.with_extension(format!("{}.tmp", nanoid::nanoid!()));
     let guard = super::engine::TempFile(temporary);
@@ -198,11 +301,25 @@ pub fn is_output(root: &Path, path: &Path) -> bool {
 
 pub fn is_output_stamp(root: &Path, current: &OutputStamp) -> bool {
     let target = stamp_path(root, &current.path);
-    let stored = fs::read(&target)
-        .ok()
-        .and_then(|bytes| serde_json::from_slice::<OutputStamp>(&bytes).ok());
+    let stored = read_stamp(&target);
+    let identity_record = identity_stamp_path(root, current)
+        .and_then(|path| read_stamp(&path))
+        .filter(|saved| Some(saved) != stored.as_ref());
+    for saved in stored.iter().chain(identity_record.iter()) {
+        if saved.matches(current) {
+            // Remember the verified new name/version so repeated events don't
+            // reread the video. The fingerprint still describes only these bytes.
+            if !saved.same_version(current) {
+                let mut verified = current.clone();
+                verified.fingerprint = saved.fingerprint.clone();
+                if let Err(error) = save_stamp(root, &verified) {
+                    log::warn!("Video output record: {error}");
+                }
+            }
+            return true;
+        }
+    }
     match stored {
-        Some(stored) if stored == *current => true,
         // Old records did not store ctime/inode. Only migrate unchanged files whose
         // change time predates the record; never bless a replacement at startup.
         Some(stored)
@@ -236,9 +353,9 @@ pub fn restore_output(
     expected: Option<&OutputStamp>,
     allow_legacy: bool,
 ) -> Option<OutputStamp> {
-    let current = stamp(path).ok()?;
+    let mut current = stamp(path).ok()?;
     let known = match expected {
-        Some(expected) => *expected == current,
+        Some(expected) => expected.matches(&current),
         None => {
             is_output_stamp(root, &current)
                 || (allow_legacy
@@ -251,6 +368,21 @@ pub fn restore_output(
     };
     if !known {
         return None;
+    }
+    // Upgrade only a still-verified output. Never fingerprint an unverified
+    // replacement simply because its path appears in old history.
+    current.fingerprint = expected.and_then(|saved| saved.fingerprint.clone());
+    if current.fingerprint.is_none() {
+        current.fingerprint = read_stamp(&stamp_path(root, &current.path))
+            .filter(|saved| saved.same_version(&current))
+            .and_then(|saved| saved.fingerprint);
+    }
+    if current.fingerprint.is_none() {
+        let verified = fingerprinted_stamp(path).ok()?;
+        if !current.same_version(&verified) {
+            return None;
+        }
+        current = verified;
     }
     if let Err(error) = save_stamp(root, &current) {
         log::warn!("Video output record: {error}");

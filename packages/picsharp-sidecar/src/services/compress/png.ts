@@ -98,6 +98,8 @@ export async function processPngLossless(payload: {
           await imageOutputRecords().publish(outputPath, (temporary) =>
             copyFile(input_path, temporary),
           );
+        } else if (options.watch_version) {
+          await imageOutputRecords().remember(outputPath, { version: options.watch_version });
         }
       }
       return {
@@ -129,6 +131,8 @@ export async function processPngLossless(payload: {
           await imageOutputRecords().publish(outputPath, (temporary) =>
             copyFile(input_path, temporary),
           );
+        } else if (options.watch_version) {
+          await imageOutputRecords().remember(outputPath, { version: options.watch_version });
         }
       }
       const convert_results: any[] = await applyImageConversion(

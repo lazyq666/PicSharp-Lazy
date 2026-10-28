@@ -454,7 +454,7 @@ const enUS = {
   'page.compression.watch.guide.history': 'History',
   'page.compression.watch.guide.attention': 'Attention',
   'page.compression.watch.guide.attention_description':
-    'Only recognize new images (new, copy, move) added to the directory, and do not compress images that already exist in the directory. If an image is replaced with an image that already exists in the directory and has the same name, it will be considered the same image and will not be compressed.',
+    'Files already in the folder are skipped when monitoring starts. New or changed images are compressed automatically; compressed images with unchanged contents are skipped.',
   'page.compression.tinify.error.unsupported_file_type':
     'TinyPNG only supports PNG, JPG, JPEG, WebP, and AVIF images',
   // Image Viewer

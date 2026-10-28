@@ -39,7 +39,8 @@ export interface Payload {
   [key: string]: unknown;
 }
 
-// Coalesce writes without hashing media. Images settle for 500 ms, videos for 3 s.
+// Coalesce writes using metadata. Images settle for 500 ms, videos for 3 s.
+// Only changed, previously marked image outputs need a content fingerprint check.
 // Output protection is checked here and again immediately before queued work runs.
 export function createMediaEvents(
   emit: (payload: Payload) => void,

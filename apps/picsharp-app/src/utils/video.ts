@@ -5,6 +5,7 @@ import useSettingsStore from '@/store/settings';
 import { ICompressor } from './compressor';
 import { humanSize } from './fs';
 import { correctFloat } from '.';
+import { VALID_VIDEO_EXTS } from '@/constants';
 
 export interface VideoInfo {
   duration: number;
@@ -46,7 +47,8 @@ const cancellationRequests = new Set<string>();
 
 // Check only the incoming paths against durable output records, without loading all history.
 export async function excludeVideoOutputs(paths: string[]): Promise<string[]> {
-  if (!paths.some((path) => /\.mp4$/i.test(path))) return paths;
+  if (!paths.some((path) => VALID_VIDEO_EXTS.some((ext) => path.toLowerCase().endsWith(`.${ext}`))))
+    return paths;
   return invoke<string[]>('ipc_filter_video_inputs', { paths });
 }
 

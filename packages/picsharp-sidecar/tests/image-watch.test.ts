@@ -11,7 +11,12 @@ import {
   rm,
   utimes,
   symlink,
+  chmod,
+  stat,
 } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -69,6 +74,221 @@ function options(temp: string, mode = 'save_as_new_file') {
   };
 }
 
+async function changeMetadata(path: string, value: string) {
+  if (process.platform === 'darwin') {
+    execFileSync('/usr/bin/xattr', ['-w', 'com.picsharp.watch-test', value, path]);
+  } else {
+    const metadata = await stat(path);
+    await chmod(path, (metadata.mode & 0o777) ^ 0o100);
+  }
+}
+
+test('compressed image fingerprints survive metadata changes and restarts', async () => {
+  const f = await fixture();
+  const path = join(f.folder, 'output.png');
+  try {
+    await f.records.publish(path, (temporary) => writeFile(temporary, 'compressed image'));
+    const before = await stat(path, { bigint: true });
+    await changeMetadata(path, 'preview');
+    const after = await stat(path, { bigint: true });
+    assert.equal(after.ino, before.ino);
+    assert.equal(after.size, before.size);
+    assert.equal(after.mtimeNs, before.mtimeNs);
+    assert.notEqual(after.ctimeNs, before.ctimeNs);
+    const restarted = new OutputRecords(f.records.directory);
+    assert.equal(await restarted.status(path), 'output');
+    assert.equal(await restarted.isInput({ path, version: (await readFileVersion(path))! }), false);
+  } finally {
+    await f.close();
+  }
+});
+
+test('unchanged outputs skip content reads; a replacement during fingerprinting is deferred', async () => {
+  const f = await fixture();
+  const path = join(f.folder, 'output.png');
+  const timestamp = new Date('2026-01-01T00:00:00Z');
+  const originalReadStream = fs.createReadStream;
+  try {
+    await f.records.publish(path, async (temporary) => {
+      await writeFile(temporary, 'AAAA');
+      await utimes(temporary, timestamp, timestamp);
+    });
+    let reads = 0;
+    let replace = false;
+    fs.createReadStream = ((...args: Parameters<typeof originalReadStream>) => {
+      const stream = originalReadStream(...args);
+      if (args[0] === path) {
+        reads++;
+        if (replace) {
+          replace = false;
+          stream.once('end', () => {
+            fs.writeFileSync(path, 'BBBB');
+            fs.utimesSync(path, timestamp, timestamp);
+          });
+        }
+      }
+      return stream;
+    }) as typeof originalReadStream;
+    syncBuiltinESMExports();
+    assert.equal(await f.records.status(path), 'output');
+    assert.equal(reads, 0, 'an unchanged version is already verified');
+    await changeMetadata(path, 'preview');
+    const candidate = { path, version: (await readFileVersion(path))! };
+    replace = true;
+    assert.equal(await f.records.status(path, candidate.version), 'writing');
+    assert.equal(await f.records.isInput(candidate), false, 'the old queued version is stale');
+    assert.equal(
+      await f.records.status(path),
+      'input',
+      'the replacement is not a compressed output',
+    );
+  } finally {
+    fs.createReadStream = originalReadStream;
+    syncBuiltinESMExports();
+    await f.close();
+  }
+});
+
+test('legacy output markers never assume changed bytes are already compressed', async () => {
+  const f = await fixture();
+  const path = join(f.folder, 'output.png');
+  try {
+    await f.records.publish(path, (temporary) => writeFile(temporary, 'AAAA'));
+    const [filename] = await readdir(f.records.directory);
+    const recordPath = join(f.records.directory, filename);
+    const legacy = JSON.parse(await readFile(recordPath, 'utf8'));
+    delete legacy.fingerprint;
+    await writeFile(recordPath, JSON.stringify(legacy));
+    assert.equal(await f.records.status(path), 'output');
+    await writeFile(path, 'BBBB');
+    assert.equal(await f.records.status(path), 'input');
+    await f.records.remember(path);
+    await changeMetadata(path, 'preview-after-new-record');
+    assert.equal(await new OutputRecords(f.records.directory).status(path), 'output');
+  } finally {
+    await f.close();
+  }
+});
+
+test('live image watch ignores preview attributes but imports in-place and atomic re-exports', async () => {
+  const f = await fixture();
+  const path = join(f.folder, 'image.png');
+  const timestamp = new Date('2026-01-01T00:00:00Z');
+  const images = await Promise.all(
+    ['#ff0000', '#00ff00', '#0000ff'].map((background) =>
+      sharp({ create: { width: 32, height: 32, channels: 3, background } })
+        .png({ compressionLevel: 0 })
+        .toBuffer(),
+    ),
+  );
+  assert.equal(new Set(images.map((image) => image.length)).size, 1);
+  const publish = (image: Buffer) =>
+    f.records.publish(path, async (temporary) => {
+      await writeFile(temporary, image);
+      await utimes(temporary, timestamp, timestamp);
+    });
+  await publish(images[0]);
+  const emitted: { fullPath: string; version?: string }[] = [];
+  const errors: Error[] = [];
+  const events = createMediaEvents((payload) => emitted.push(payload), 40, 10, 4096, f.records);
+  const watcher = watchMediaFiles(f.folder, [], events, (error) => errors.push(error));
+  try {
+    await watcher.ready;
+    for (let n = 0; n < 3; n++) {
+      await readFile(path);
+      await changeMetadata(path, `preview-${n}`);
+      await sleep(250);
+      assert.equal(emitted.length, 0, 'preview metadata must not requeue a compressed image');
+    }
+    // In-place export keeps the file identity and its marker; even size/mtime stay equal.
+    await writeFile(path, images[1]);
+    await utimes(path, timestamp, timestamp);
+    await until(() => emitted.length === 1);
+    assert.equal(emitted[0].fullPath, path);
+    assert.equal(await f.records.isInput({ path, version: emitted[0].version! }), true);
+    await publish(images[1]);
+    await changeMetadata(path, 'preview-after-recompression');
+    await sleep(250);
+    assert.equal(emitted.length, 1);
+    const incoming = join(f.root, 'export.png');
+    await writeFile(incoming, images[2]);
+    await utimes(incoming, timestamp, timestamp);
+    await rename(incoming, path);
+    await until(() => emitted.length === 2);
+    assert.equal(emitted[1].fullPath, path);
+    assert.notEqual(emitted[0].version, emitted[1].version);
+    await sleep(250);
+    assert.equal(emitted.length, 2, 'each actual re-export is imported once');
+    assert.deepEqual(errors, []);
+  } finally {
+    watcher.close();
+    events.close();
+    await f.close();
+  }
+});
+
+test('a replacement during output registration is never marked as compressed', async () => {
+  const f = await fixture();
+  const path = join(f.folder, 'image.png');
+  const remember = f.records.remember.bind(f.records);
+  f.records.remember = async (...args) => {
+    await writeFile(path, 'new original');
+    await remember(...args);
+  };
+  try {
+    await assert.rejects(
+      f.records.publish(path, (temporary) => writeFile(temporary, 'compressed image')),
+      isWatchInputChanged,
+    );
+    assert.equal(await readFile(path, 'utf8'), 'new original');
+    assert.equal(await f.records.status(path), 'input');
+  } finally {
+    await f.close();
+  }
+});
+
+test('watched images kept because of the savings threshold are still marked as processed', async () => {
+  const f = await fixture();
+  try {
+    for (const ext of ['jpg', 'png', 'svg']) {
+      const path = join(f.folder, `unchanged.${ext}`);
+      const content =
+        ext === 'svg'
+          ? Buffer.from(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="red"/></svg>',
+            )
+          : await sharp({ create: { width: 32, height: 32, channels: 3, background: '#dd3333' } })
+              .toFormat(ext === 'jpg' ? 'jpeg' : 'png')
+              .toBuffer();
+      await writeFile(path, content);
+      const payload = {
+        input_path: path,
+        options: {
+          ...options(f.temp, 'overwrite'),
+          convert_enable: false,
+          limit_compress_rate: 2,
+          watch_version: await readFileVersion(path),
+        },
+        process_options: { quality: 50 },
+      };
+      const result =
+        ext === 'jpg'
+          ? await processJpeg(payload)
+          : ext === 'png'
+            ? await processPngLossless(payload)
+            : await processSvg(payload);
+      assert.equal(result.available_compress_rate, false, ext);
+      assert.deepEqual(await readFile(path), content);
+      await changeMetadata(path, 'preview');
+      assert.equal(await f.records.status(path), 'output', ext);
+      await writeFile(path, 'newly exported original');
+      assert.equal(await f.records.status(path), 'input', ext);
+    }
+  } finally {
+    await f.close();
+  }
+});
+
 test('durable output records are version-specific, including equal-size/mtime replacements', async () => {
   const f = await fixture();
   const path = join(f.folder, 'output.png');
@@ -121,10 +341,10 @@ test('a slow publication record never leaks its output into monitoring', async (
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  f.records.remember = async (path) => {
+  f.records.remember = async (...args) => {
     publishing = true;
     await gate;
-    await remember(path);
+    await remember(...args);
   };
   let saving: Promise<void> | undefined;
   try {
@@ -216,7 +436,10 @@ test(
       await assert.rejects(
         processJpeg({
           input_path: result.output_path,
-          options: { ...options(f.folder), watch_version: await readFileVersion(result.output_path) },
+          options: {
+            ...options(f.folder),
+            watch_version: await readFileVersion(result.output_path),
+          },
           process_options: { quality: 50 },
         }),
         isWatchInputChanged,

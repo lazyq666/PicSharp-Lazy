@@ -1,4 +1,6 @@
 import type { BigIntStats } from 'node:fs';
+import { createReadStream } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { realpath, stat } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 
@@ -12,6 +14,23 @@ export async function readFileVersion(path: string): Promise<string | undefined>
   try {
     const metadata = await stat(path, { bigint: true });
     return metadata.isFile() ? fileVersion(metadata) : undefined;
+  } catch (error: any) {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return undefined;
+    throw error;
+  }
+}
+
+// Only fingerprint generated images or changed, previously marked outputs. Stream
+// their bytes so large images do not require a second full-size buffer in memory.
+// A snapshot is valid only if the file stayed at the same version throughout.
+export async function readFileFingerprint(path: string, expectedVersion?: string) {
+  const version = await readFileVersion(path);
+  if (!version || (expectedVersion && version !== expectedVersion)) return undefined;
+  try {
+    const hash = createHash('sha256');
+    for await (const chunk of createReadStream(path)) hash.update(chunk);
+    if ((await readFileVersion(path)) !== version) return undefined;
+    return { version, fingerprint: `sha256:${hash.digest('hex')}` };
   } catch (error: any) {
     if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return undefined;
     throw error;
