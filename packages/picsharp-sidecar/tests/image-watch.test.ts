@@ -560,7 +560,9 @@ test('real filter route rejects late queued output events and stale versions but
       body: JSON.stringify(candidates),
     });
     assert.equal(response.status, 200);
-    return response.json();
+    const result = await response.json() as { inputs: {path:string;version:string}[]; issues: unknown[] };
+    assert.deepEqual(result.issues, []);
+    return result.inputs;
   };
   try {
     await writeFile(path, 'compressed output');

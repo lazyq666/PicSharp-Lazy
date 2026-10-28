@@ -63,6 +63,7 @@ export namespace ICompressor {
     input_path: string;
     input_size: number;
     output_path: string;
+    output_version?: string;
     output_converted_path: string;
     output_size: number;
     compression_rate: number;

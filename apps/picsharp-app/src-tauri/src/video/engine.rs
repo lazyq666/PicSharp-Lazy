@@ -395,9 +395,9 @@ impl Engine {
         }
         std::fs::create_dir_all(directory).map_err(|e| e.to_string())?;
         std::fs::create_dir_all(logs).map_err(|e| e.to_string())?;
-        let temp = TempFile(directory.join(format!(".picsharp-video-{id}.mp4")));
+        let temp = super::workfile::WorkFile::new(directory, id)?;
         let log = logs.join(format!("{id}.log"));
-        let args = encode_args(input, &temp.0, &info, preset);
+        let args = encode_args(input, &temp.path, &info, preset);
         let mut err = std::fs::File::create(&log).map_err(|e| e.to_string())?;
         use std::io::Write;
         writeln!(
@@ -438,8 +438,8 @@ impl Engine {
                 log.display()
             ));
         }
-        let output_info = self.inspect(&temp.0, cancel).await?;
-        let bytes = std::fs::metadata(&temp.0).map_err(|e| e.to_string())?.len();
+        let output_info = self.inspect(&temp.path, cancel).await?;
+        let bytes = std::fs::metadata(&temp.path).map_err(|e| e.to_string())?.len();
         if bytes == 0
             || (output_info.duration - info.duration).abs() >= 1.0_f64.max(info.duration * 0.01)
             || output_info.audio.len() != info.audio.len()
@@ -447,7 +447,7 @@ impl Engine {
             return Err("输出完整性检查未通过，未保存成品；原视频未改动。".into());
         }
         check_cancel(cancel)?;
-        let rendered_path = temp.0.clone();
+        let rendered_path = temp.path.clone();
         let hash_cancel = cancel.clone();
         let rendered = tokio::task::spawn_blocking(move || {
             super::retention::fingerprinted_stamp_cancellable(&rendered_path, || {
@@ -458,7 +458,7 @@ impl Engine {
         .map_err(|e| e.to_string())??;
         check_cancel(cancel)?;
         let path = publish(
-            &temp.0,
+            &temp.path,
             directory,
             input
                 .file_stem()

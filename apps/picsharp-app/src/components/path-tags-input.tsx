@@ -190,6 +190,7 @@ export function PathTagsInput({
 
   const applyNext = React.useCallback(
     (next: string[]) => {
+      next = next.map((tag) => tag.trim()).filter(Boolean);
       if (!isControlled) {
         startTransition(() => {
           setUncontrolledTags(next);
@@ -244,7 +245,9 @@ export function PathTagsInput({
   const updateIndex = React.useCallback(
     (index: number, nextText: string) => {
       const trimmed = nextText.trim();
-      const next = tags.map((v, i) => (i === index ? trimmed : v));
+      const next = trimmed
+        ? tags.map((v, i) => (i === index ? trimmed : v))
+        : tags.filter((_, i) => i !== index);
       applyNext(next);
     },
     [applyNext, tags],

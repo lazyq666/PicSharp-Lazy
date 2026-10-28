@@ -3,6 +3,7 @@ import { lstat, opendir } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileVersion } from '../../services/file-version';
 import { createMediaEvents, isMedia, isTemporaryMedia, isVideoOutput } from './media';
+import { createIgnoreMatcher } from './ignores';
 
 // One metadata snapshot per watched file, rather than dirspy's content hashes/tree.
 // A normal file event examines only that path. Directory events reconcile snapshots,
@@ -21,8 +22,9 @@ export function watchMediaFiles(
   let draining = false;
   let initializing = true;
   let rootIdentity: string | undefined;
+  const matchesIgnore = createIgnoreMatcher(root, ignores);
   const ignored = (path: string) =>
-    ignores.some((ignore) => path.includes(ignore)) ||
+    matchesIgnore(path) ||
     isTemporaryMedia(path) ||
     isVideoOutput(path);
 
@@ -66,6 +68,7 @@ export function watchMediaFiles(
           }
         }
       } else if (metadata.isFile() && isMedia(path)) {
+        if (baseline) await events.prime(path);
         const version = fileVersion(metadata);
         const previous = versions.get(path);
         versions.set(path, version);

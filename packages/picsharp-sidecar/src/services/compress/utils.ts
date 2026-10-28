@@ -10,7 +10,7 @@ import { ConvertFormat, SaveMode } from '../../constants';
 import { createOutputPath, copyFileToTemp, createOutputPathTempPath } from '../../utils';
 import { rm, copyFile } from 'node:fs/promises';
 import { calCompressionRate } from '../../utils';
-import { imageOutputRecords, assertWatchInput } from '../output-records';
+import { imageOutputRecords, assertWatchInput, watchVersionForOutput } from '../output-records';
 
 type Format = keyof FormatEnum;
 
@@ -87,30 +87,30 @@ export async function saveImage(
   });
   // 复制原始文件到临时文件
   const originalEctypePath = await copyFileToTemp(inputPath, options.temp_dir);
-  // 创建输出临时文件
-  const outputTempPath = createOutputPathTempPath(outputPath);
-  try {
-    const { size: compressedSize } = await stream
-      .toFormat(format, process_options)
-      .toFile(outputTempPath);
-    const compressionRate = calCompressionRate(originalSize, compressedSize);
-    const availableCompressRate = compressionRate >= (options.limit_compress_rate || 0);
-    if (availableCompressRate) {
-      await imageOutputRecords().commit(
-        outputPath,
-        outputTempPath,
-        inputPath === outputPath ? options.watch_version : undefined,
-      );
-    } else if (inputPath !== outputPath) {
-      await imageOutputRecords().publish(outputPath, (temporary) => copyFile(inputPath, temporary));
-    } else if (options.watch_version) {
-      // A successful attempt that keeps the original must not repeat on preview access.
-      await imageOutputRecords().remember(outputPath, { version: options.watch_version });
-    }
-    return { availableCompressRate, originalEctypePath, compressedSize, compressionRate };
-  } finally {
-    await rm(outputTempPath, { force: true });
-  }
+  const expected = await watchVersionForOutput(inputPath, outputPath, options.watch_version);
+  let compressedSize = 0;
+  let compressionRate = 0;
+  let availableCompressRate = false;
+  // Encode in a task-owned directory on this volume, rather than a longer
+  // sibling pathname that follows any user move of the source directory.
+  const { outputVersion } = await imageOutputRecords().publishTracked(
+    outputPath,
+    async (temporary) => {
+      const result = await stream.toFormat(format, process_options).toFile(temporary);
+      compressedSize = result.size;
+      compressionRate = calCompressionRate(originalSize, compressedSize);
+      availableCompressRate = compressionRate >= (options.limit_compress_rate || 0);
+      if (!availableCompressRate) await copyFile(inputPath, temporary);
+    },
+    expected,
+  );
+  return {
+    availableCompressRate,
+    originalEctypePath,
+    compressedSize,
+    compressionRate,
+    outputVersion,
+  };
 }
 
 export interface ImageTaskPayload {
@@ -145,13 +145,19 @@ export async function processImage(
     options.convert_types,
     options.convert_alpha,
   );
-  const { availableCompressRate, originalEctypePath, compressedSize, compressionRate } =
-    await saveImage(transformer, input_path, format, originalSize, options, process_options);
+  const {
+    availableCompressRate,
+    originalEctypePath,
+    compressedSize,
+    compressionRate,
+    outputVersion,
+  } = await saveImage(transformer, input_path, format, originalSize, options, process_options);
 
   return {
     input_path,
     input_size: originalSize,
     output_path: outputPath,
+    output_version: outputVersion,
     output_size: availableCompressRate ? compressedSize : originalSize,
     compression_rate: availableCompressRate ? compressionRate : 0,
     original_temp_path: originalEctypePath,

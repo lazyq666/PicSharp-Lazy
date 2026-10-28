@@ -36,10 +36,8 @@ const ImageViewer = forwardRef<ImageViewerRef, ImageViewerProps>(function ImageV
   const imgRef = useRef<HTMLImageElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const {
-    sidecar: { origin: sidecarOrigin },
-    imageTempDir,
-  } = useAppStore(useSelector(['sidecar', 'imageTempDir']));
+  const { sidecar, imageTempDir } = useAppStore(useSelector(['sidecar', 'imageTempDir']));
+  const sidecarOrigin = sidecar?.origin;
   const hasRenderedRef = useRef<boolean>(false);
   const [displaySrc, setDisplaySrc] = useState<string | undefined>(useThumbnail ? undefined : src);
 

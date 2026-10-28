@@ -1,10 +1,10 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { ICompressor } from './compressor';
 import { isValidArray } from '.';
-import { CompressionOutputMode, VALID_VIDEO_EXTS } from '@/constants';
-import { copyFile, exists, remove } from '@tauri-apps/plugin-fs';
+import { VALID_VIDEO_EXTS } from '@/constants';
 import { isMac, isLinux } from '.';
 import useSettingsStore from '@/store/settings';
+import useAppStore from '@/store/app';
 
 const mags = ' KMGTPEZY';
 export function humanSize(bytes: number) {
@@ -132,42 +132,37 @@ export async function undoSave(file: FileInfo) {
     file.originalTempPathConverted &&
     file.saveType
   ) {
-    const { path, outputPath, originalTempPath, saveType } = file;
-    if (!(await exists(originalTempPath))) {
-      return {
-        success: false,
-        message: 'undo.original_file_not_exists',
-      };
-    }
-    if (saveType === CompressionOutputMode.Overwrite) {
-      copyFile(originalTempPath, path);
-    } else {
-      if (!(await exists(outputPath))) {
-        return {
-          success: false,
-          message: 'undo.output_file_not_exists',
-        };
-      }
-      if (file.path === file.outputPath) {
-        copyFile(originalTempPath, path);
-      } else {
-        remove(outputPath);
-      }
-    }
-    if (isValidArray(file.convertResults)) {
-      await Promise.all(
-        file.convertResults.map(async (item) => {
-          if (item.success && (await exists(item.output_path))) {
-            return remove(item.output_path);
-          }
-          return Promise.resolve();
+    const { origin } = useAppStore.getState().sidecar ?? {};
+    if (!origin) return { success: false, message: 'undo.service_unavailable' };
+    // The service owns both the identity check and the filesystem operation.
+    // Checking here then deleting by path would leave a second export unprotected.
+    try {
+      const response = await fetch(`${origin}/stream/watch/undo-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: file.path,
+          outputPath: file.outputPath,
+          originalTempPath: file.originalTempPath,
+          saveType: file.saveType,
+          outputVersion: file.outputVersion,
+          convertResults: file.convertResults
+            ?.filter((item) => item.success)
+            .map((item) => ({
+              output_path: item.output_path,
+              output_version: item.output_version,
+            })),
         }),
-      );
+      });
+      if (!response.ok) return { success: false, message: 'undo.service_unavailable' };
+      return (await response.json()) as {
+        success: boolean;
+        message: string;
+        recoveryPaths?: string[];
+      };
+    } catch {
+      return { success: false, message: 'undo.service_unavailable' };
     }
-    return {
-      success: true,
-      message: 'undo.success',
-    };
   }
   return {
     success: false,

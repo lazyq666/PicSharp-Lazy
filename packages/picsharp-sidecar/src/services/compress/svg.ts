@@ -12,7 +12,7 @@ import {
 } from '../../utils';
 import sharp, { Metadata } from 'sharp';
 import { SaveMode } from '../../constants';
-import { imageOutputRecords, assertWatchInput } from '../output-records';
+import { imageOutputRecords, assertWatchInput, watchVersionForOutput } from '../output-records';
 
 export interface SvgTaskPayload {
   input_path: string;
@@ -45,23 +45,33 @@ export async function processSvg(payload: SvgTaskPayload) {
       new_folder_path: options.save.new_folder_path,
     });
     const tempFilePath = await copyFileToTemp(input_path, options.temp_dir);
+    let outputVersion: string | undefined;
     if (availableCompressRate) {
-      await imageOutputRecords().publish(
-        newOutputPath,
-        (temporary) => writeFile(temporary, optimizedContent.data, 'utf-8'),
-        input_path === newOutputPath ? options.watch_version : undefined,
-      );
+      outputVersion = (
+        await imageOutputRecords().publishTracked(
+          newOutputPath,
+          (temporary) => writeFile(temporary, optimizedContent.data, 'utf-8'),
+          await watchVersionForOutput(input_path, newOutputPath, options.watch_version),
+        )
+      ).outputVersion;
     } else if (input_path !== newOutputPath) {
-      await imageOutputRecords().publish(newOutputPath, (temporary) =>
-        copyFile(input_path, temporary),
-      );
+      outputVersion = (
+        await imageOutputRecords().publishTracked(
+          newOutputPath,
+          (temporary) => copyFile(input_path, temporary),
+          await watchVersionForOutput(input_path, newOutputPath, options.watch_version),
+        )
+      ).outputVersion;
     } else if (options.watch_version) {
-      await imageOutputRecords().remember(newOutputPath, { version: options.watch_version });
+      outputVersion = await imageOutputRecords().remember(newOutputPath, {
+        version: options.watch_version,
+      });
     }
     return {
       input_path,
       input_size: originalSize,
       output_path: newOutputPath,
+      output_version: outputVersion,
       output_size: availableCompressRate ? optimizedContent.data.length : originalSize,
       compression_rate: availableCompressRate ? compressRatio : 0,
       original_temp_path: tempFilePath,

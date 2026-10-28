@@ -247,6 +247,7 @@ function ToolbarCompress() {
             if (targetFile.mediaType !== 'video')
               targetFile.assetPath = convertFileSrc(res.output_path);
             targetFile.outputPath = res.output_path;
+            targetFile.outputVersion = res.output_version;
             targetFile.originalTempPath = res.original_temp_path;
             targetFile.originalTempPathConverted = res.original_temp_path
               ? convertFileSrc(res.original_temp_path)

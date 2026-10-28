@@ -1,6 +1,7 @@
 mod engine;
 mod previews;
 mod retention;
+mod workfile;
 #[cfg(test)]
 mod tests;
 use engine::{Cancel, Engine, MediaInfo, Output, Preset, Progress};
@@ -70,6 +71,10 @@ impl VideoService {
                         job.directory
                             .join(format!(".picsharp-video-{}.mp4", job.id)),
                     );
+                    let workspace = job.directory.join(format!(".picsharp-video-{}", job.id));
+                    let _ = std::fs::remove_file(workspace.join("output.mp4"));
+                    // Do not recursively remove a workspace containing other files.
+                    let _ = std::fs::remove_dir(workspace);
                 }
             }
         }

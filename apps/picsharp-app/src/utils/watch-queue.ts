@@ -5,6 +5,12 @@ export interface WatchCandidate {
   version: string;
 }
 
+export interface WatchIssue {
+  path?: string;
+  code?: string;
+  message: string;
+}
+
 // Keep the latest version of each path. Busy paths stay queued until completion,
 // without polling the backend every second or losing replacements during encoding.
 export class WatchQueue {
@@ -49,7 +55,11 @@ export class WatchQueue {
 export async function filterWatchInputs(
   origin: string,
   candidates: WatchCandidate[],
-  { signal, ignoreNinePatch = false }: { signal?: AbortSignal; ignoreNinePatch?: boolean } = {},
+  { signal, ignoreNinePatch = false, onIssues }: {
+    signal?: AbortSignal;
+    ignoreNinePatch?: boolean;
+    onIssues?: (issues: WatchIssue[]) => void;
+  } = {},
 ): Promise<WatchCandidate[]> {
   const inputs = ignoreNinePatch
     ? candidates.filter(({ path }) => {
@@ -67,5 +77,13 @@ export async function filterWatchInputs(
     signal,
   });
   if (!response.ok) throw new Error('无法核对待压缩文件的版本。');
-  return response.json();
+  const result = await response.json();
+  // Accept older helpers while preserving per-file diagnostics from current ones.
+  if (Array.isArray(result)) {
+    onIssues?.([]);
+    return result;
+  }
+  if (!Array.isArray(result.inputs)) throw new Error('无法核对待压缩文件的版本。');
+  onIssues?.(Array.isArray(result.issues) ? result.issues : []);
+  return result.inputs;
 }

@@ -11,23 +11,27 @@ export async function convert(
   alpha: string,
 ) {
   try {
-    const result = await imageOutputRecords().publish(outputPath, async (temporary) => {
-      switch (format) {
-        case ConvertFormat.PNG:
-          return stream.png().toFile(temporary);
-        case ConvertFormat.JPG:
-          return stream.flatten({ background: alpha }).jpeg().toFile(temporary);
-        case ConvertFormat.WEBP:
-          return stream.webp().toFile(temporary);
-        case ConvertFormat.AVIF:
-          return stream.avif().toFile(temporary);
-        default:
-          throw new Error(`Unsupported convert format: ${format}`);
-      }
-    });
+    const { result, outputVersion } = await imageOutputRecords().publishTracked(
+      outputPath,
+      async (temporary) => {
+        switch (format) {
+          case ConvertFormat.PNG:
+            return stream.png().toFile(temporary);
+          case ConvertFormat.JPG:
+            return stream.flatten({ background: alpha }).jpeg().toFile(temporary);
+          case ConvertFormat.WEBP:
+            return stream.webp().toFile(temporary);
+          case ConvertFormat.AVIF:
+            return stream.avif().toFile(temporary);
+          default:
+            throw new Error(`Unsupported convert format: ${format}`);
+        }
+      },
+    );
     return {
       success: true,
       output_path: outputPath,
+      output_version: outputVersion,
       format,
       info: result,
     };

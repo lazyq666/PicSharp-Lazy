@@ -5,6 +5,7 @@ declare global {
   interface ConvertResult {
     success: boolean;
     output_path: string;
+    output_version?: string;
     format: string;
     error_msg?: string;
     info: {
@@ -41,6 +42,7 @@ declare global {
     formattedCompressedDiskSize: string;
     compressRate: string;
     outputPath: string;
+    outputVersion?: string;
     status: ICompressor.Status;
     originalTempPath: string;
     originalTempPathConverted: string;

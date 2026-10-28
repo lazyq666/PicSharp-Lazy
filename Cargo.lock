@@ -17,6 +17,7 @@ dependencies = [
  "futures-util",
  "glob",
  "image",
+ "libc",
  "log",
  "merge",
  "nanoid",

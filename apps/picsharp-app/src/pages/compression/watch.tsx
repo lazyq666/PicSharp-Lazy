@@ -1,4 +1,4 @@
-import { useEffect, useRef, useContext } from 'react';
+import { useEffect, useRef, useContext, useState } from 'react';
 import { debounce } from 'radash';
 import useCompressionStore from '@/store/compression';
 import WatchFileManager from './watch-file-manager';
@@ -23,7 +23,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { useReport } from '@/hooks/useReport';
 import { captureError } from '@/utils';
 import { excludeVideoOutputs } from '@/utils/video';
-import { WatchQueue, WatchCandidate, filterWatchInputs } from '@/utils/watch-queue';
+import { WatchQueue, WatchCandidate, WatchIssue, filterWatchInputs } from '@/utils/watch-queue';
 
 function CompressionWatch() {
   const { progressRef } = useContext(CompressionContext);
@@ -37,6 +37,17 @@ function CompressionWatch() {
   const drainingRef = useRef(false);
   const activeRef = useRef(true);
   const runningRef = useRef(new Map<string, FileInfo>());
+  const deferredRef = useRef(new Map<string, WatchCandidate>());
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const [issues, setIssues] = useState<WatchIssue[]>([]);
+  const reportIssues = (incoming: WatchIssue[]) => {
+    if (!activeRef.current) return;
+    setIssues((previous) => {
+      const unique = new Map(previous.map((issue) => [issue.path || issue.message, issue]));
+      for (const issue of incoming) unique.set(issue.path || issue.message, issue);
+      return [...unique.values()];
+    });
+  };
 
   const handleCompress = async (files: FileInfo[]) => {
     const inputs = new Map(files.map((file) => [file.path, file]));
@@ -157,6 +168,7 @@ function CompressionWatch() {
             if (targetFile.mediaType !== 'video')
               targetFile.assetPath = convertFileSrc(res.output_path);
             targetFile.outputPath = res.output_path;
+            targetFile.outputVersion = res.output_version;
             targetFile.originalTempPath = res.original_temp_path;
             targetFile.originalTempPathConverted = res.original_temp_path
               ? convertFileSrc(res.original_temp_path)
@@ -254,11 +266,24 @@ function CompressionWatch() {
       while (activeRef.current && queueRef.current.hasReady(isBusy)) {
         batch = queueRef.current.take(isBusy);
         const { sidecar } = useAppStore.getState();
+        let checkIssues: WatchIssue[] = [];
         // Read the current preference for each batch so toggling it also affects a live watch.
         const eligible = await filterWatchInputs(sidecar?.origin, batch, {
           signal: ctrlRef.current?.signal,
           ignoreNinePatch: useSettingsStore.getState()[SettingsKey.CompressionWatchIgnoreNinePatch],
+          onIssues: (current) => { checkIssues = current; },
         });
+        if (!activeRef.current) break;
+        const checkedPaths = new Set(batch.map((candidate) => candidate.path));
+        setIssues((previous) => previous.filter((issue) =>
+          issue.code !== 'watch_check_failed' && (!issue.path || !checkedPaths.has(issue.path)),
+        ));
+        reportIssues(checkIssues);
+        const failedPaths = new Set(checkIssues.map((issue) => issue.path));
+        for (const candidate of batch) {
+          if (failedPaths.has(candidate.path)) deferredRef.current.set(candidate.path, candidate);
+          else deferredRef.current.delete(candidate.path);
+        }
         const paths = new Set(await excludeVideoOutputs(eligible.map((entry) => entry.path)));
         if (!activeRef.current) break;
         const versions = new Map(
@@ -286,9 +311,21 @@ function CompressionWatch() {
       if (activeRef.current) {
         queueRef.current.retry(batch);
         captureError(error);
+        reportIssues([{ code: 'watch_check_failed', message: t('tips.watch_check_failed') }]);
       }
     } finally {
       drainingRef.current = false;
+      // Retry only damaged candidates at a bounded rate; healthy neighbours have
+      // already progressed. Recheck after repair even without another file event.
+      if (activeRef.current && deferredRef.current.size && !retryTimerRef.current) {
+        retryTimerRef.current = setTimeout(() => {
+          retryTimerRef.current = undefined;
+          if (!activeRef.current) return;
+          queueRef.current.retry([...deferredRef.current.values()]);
+          deferredRef.current.clear();
+          throttledProcessData();
+        }, 3000);
+      }
       if (activeRef.current && queueRef.current.hasReady(isBusy)) throttledProcessData();
     }
   });
@@ -345,6 +382,7 @@ function CompressionWatch() {
             const payload = JSON.parse(msg.data);
             const path = payload.fullPath;
             if (typeof payload.version !== 'string') return;
+            deferredRef.current.delete(path);
             queueRef.current.add({ path, version: payload.version });
             throttledProcessData();
           } else if (msg.event === 'self-enoent') {
@@ -355,7 +393,14 @@ function CompressionWatch() {
             getCurrentWebviewWindow().show();
             getCurrentWebviewWindow().setFocus();
           } else if (msg.event === 'fault') {
-            console.log('[Sidecar] Watch EventSource fault', msg);
+            let issue: WatchIssue;
+            try {
+              const payload = JSON.parse(msg.data);
+              issue = typeof payload.message === 'string' ? payload : { message: msg.data };
+            } catch {
+              issue = { message: msg.data };
+            }
+            reportIssues([issue]);
           }
         },
         onerror(error) {
@@ -409,6 +454,8 @@ function CompressionWatch() {
     return () => {
       activeRef.current = false;
       queueRef.current.clear();
+      deferredRef.current.clear();
+      clearTimeout(retryTimerRef.current);
       throttledProcessData.cancel();
       ctrl.abort();
       ctrlRef.current = null;
@@ -424,8 +471,23 @@ function CompressionWatch() {
   }, []);
 
   return (
-    <div className='h-full'>
-      <WatchFileManager />
+    <div className='flex h-full flex-col'>
+      {issues.length > 0 && (
+        <div role='alert' className='mx-4 mb-2 max-h-36 shrink-0 overflow-auto rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100'>
+          <p>{t('tips.watch_partial_coverage')}</p>
+          <ul className='mt-1 space-y-1'>
+            {issues.map((issue) => (
+              <li key={issue.path || issue.message} className='break-all'>
+                {issue.path && <span>{issue.path}: </span>}
+                {issue.code === 'output_record_unreadable'
+                  ? t('tips.watch_record_unreadable')
+                  : issue.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className='min-h-0 flex-1'><WatchFileManager /></div>
     </div>
   );
 }

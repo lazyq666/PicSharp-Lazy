@@ -20,7 +20,7 @@ import sharp, { Metadata } from 'sharp';
 import { addTextWatermark, addImageWatermark } from '../watermark';
 import { SaveMode, WatermarkType } from '../../constants';
 import { applyImageConversion } from './utils';
-import { imageOutputRecords, assertWatchInput } from '../output-records';
+import { imageOutputRecords, assertWatchInput, watchVersionForOutput } from '../output-records';
 
 export interface ImageTaskPayload {
   input_path: string;
@@ -158,16 +158,16 @@ async function downloadAndProcessImage(
     options.convert_alpha,
   );
 
-  await imageOutputRecords().publish(
+  const { outputVersion } = await imageOutputRecords().publishTracked(
     outputPath,
     async (temporary) => {
       if (hasTransformations) await pipeline(transformer, createWriteStream(temporary));
       else await copyFile(entryFilePath, temporary);
     },
-    inputPath === outputPath ? options.watch_version : undefined,
+    await watchVersionForOutput(inputPath, outputPath, options.watch_version),
   );
 
-  return convert_results;
+  return { convert_results, outputVersion };
 }
 
 export async function processTinyPng(payload: ImageTaskPayload) {
@@ -198,9 +198,7 @@ export async function processTinyPng(payload: ImageTaskPayload) {
     });
 
     const originalTempPath = await copyFileToTemp(input_path, options.temp_dir);
-    let convert_results: any[] = [];
-
-    convert_results = await downloadAndProcessImage(
+    const { convert_results, outputVersion } = await downloadAndProcessImage(
       tinypngResult,
       input_path,
       newOutputPath,
@@ -213,6 +211,7 @@ export async function processTinyPng(payload: ImageTaskPayload) {
       input_path,
       input_size: originalSize,
       output_path: newOutputPath,
+      output_version: outputVersion,
       output_size: availableCompressRate ? await getFileSize(newOutputPath) : originalSize,
       compression_rate: availableCompressRate
         ? calCompressionRate(originalSize, await getFileSize(newOutputPath))

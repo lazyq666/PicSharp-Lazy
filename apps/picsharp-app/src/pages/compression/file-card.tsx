@@ -207,7 +207,7 @@ function FileCard(props: FileCardProps) {
       type: 'item',
       name: t('compression.file_action.undo'),
       onClick: async () => {
-        const { success, message: undoMessage } = await undoSave(file);
+        const { success, message: undoMessage, recoveryPaths } = await undoSave(file);
         if (success) {
           file.status = ICompressor.Status.Undone;
           file.compressRate = '';
@@ -216,13 +216,17 @@ function FileCard(props: FileCardProps) {
           file.formattedCompressedBytesSize = '';
           file.assetPath = convertFileSrc(file.path);
           file.outputPath = '';
+          file.outputVersion = undefined;
           file.originalTempPath = '';
           file.originalTempPathConverted = '';
           file.saveType = null;
           update();
           messageApi?.success(t(undoMessage as any));
         } else {
-          messageApi?.error(t(undoMessage as any));
+          const recovery = recoveryPaths?.length
+            ? t('undo.recovery_files', { paths: recoveryPaths.join('\n') })
+            : '';
+          messageApi?.error([t(undoMessage as any), recovery].filter(Boolean).join('\n'));
         }
       },
     };

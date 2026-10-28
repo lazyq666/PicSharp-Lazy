@@ -13,7 +13,7 @@ import { isValidArray, isWindows } from '../../utils';
 import { SaveMode, WatermarkType } from '../../constants';
 import { losslessCompressPng, PNGLosslessOptions } from '@napi-rs/image';
 import { processImage, applyImageTransformations, applyImageConversion } from './utils';
-import { imageOutputRecords, assertWatchInput } from '../output-records';
+import { imageOutputRecords, assertWatchInput, watchVersionForOutput } from '../output-records';
 
 export async function processPngLossy(payload: {
   input_path: string;
@@ -87,25 +87,35 @@ export async function processPngLossless(payload: {
       const compressionRate = calCompressionRate(originalSize, compressedSize);
       const availableCompressRate = compressionRate >= (options.limit_compress_rate || 0);
       const originalEctypePath = await copyFileToTemp(input_path, options.temp_dir);
+      let outputVersion: string | undefined;
       if (availableCompressRate) {
-        await imageOutputRecords().publish(
-          outputPath,
-          (temporary) => writeFile(temporary, optimizedImageBuffer),
-          input_path === outputPath ? options.watch_version : undefined,
-        );
+        outputVersion = (
+          await imageOutputRecords().publishTracked(
+            outputPath,
+            (temporary) => writeFile(temporary, optimizedImageBuffer),
+            await watchVersionForOutput(input_path, outputPath, options.watch_version),
+          )
+        ).outputVersion;
       } else {
         if (input_path !== outputPath) {
-          await imageOutputRecords().publish(outputPath, (temporary) =>
-            copyFile(input_path, temporary),
-          );
+          outputVersion = (
+            await imageOutputRecords().publishTracked(
+              outputPath,
+              (temporary) => copyFile(input_path, temporary),
+              await watchVersionForOutput(input_path, outputPath, options.watch_version),
+            )
+          ).outputVersion;
         } else if (options.watch_version) {
-          await imageOutputRecords().remember(outputPath, { version: options.watch_version });
+          outputVersion = await imageOutputRecords().remember(outputPath, {
+            version: options.watch_version,
+          });
         }
       }
       return {
         input_path,
         input_size: originalSize,
         output_path: outputPath,
+        output_version: outputVersion,
         output_size: availableCompressRate ? compressedSize : originalSize,
         compression_rate: availableCompressRate ? compressionRate : 0,
         original_temp_path: originalEctypePath,
@@ -120,19 +130,28 @@ export async function processPngLossless(payload: {
       const compressionRate = calCompressionRate(originalSize, compressedSize);
       const availableCompressRate = compressionRate >= (options.limit_compress_rate || 0);
       const originalEctypePath = await copyFileToTemp(input_path, options.temp_dir);
+      let outputVersion: string | undefined;
       if (availableCompressRate) {
-        await imageOutputRecords().publish(
-          outputPath,
-          (temporary) => writeFile(temporary, optimizedImageBuffer),
-          input_path === outputPath ? options.watch_version : undefined,
-        );
+        outputVersion = (
+          await imageOutputRecords().publishTracked(
+            outputPath,
+            (temporary) => writeFile(temporary, optimizedImageBuffer),
+            await watchVersionForOutput(input_path, outputPath, options.watch_version),
+          )
+        ).outputVersion;
       } else {
         if (input_path !== outputPath) {
-          await imageOutputRecords().publish(outputPath, (temporary) =>
-            copyFile(input_path, temporary),
-          );
+          outputVersion = (
+            await imageOutputRecords().publishTracked(
+              outputPath,
+              (temporary) => copyFile(input_path, temporary),
+              await watchVersionForOutput(input_path, outputPath, options.watch_version),
+            )
+          ).outputVersion;
         } else if (options.watch_version) {
-          await imageOutputRecords().remember(outputPath, { version: options.watch_version });
+          outputVersion = await imageOutputRecords().remember(outputPath, {
+            version: options.watch_version,
+          });
         }
       }
       const convert_results: any[] = await applyImageConversion(
@@ -146,6 +165,7 @@ export async function processPngLossless(payload: {
         input_path,
         input_size: originalSize,
         output_path: outputPath,
+        output_version: outputVersion,
         output_size: availableCompressRate ? compressedSize : originalSize,
         compression_rate: availableCompressRate ? compressionRate : 0,
         original_temp_path: originalEctypePath,

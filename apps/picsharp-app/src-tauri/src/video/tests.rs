@@ -112,6 +112,8 @@ fn publication_never_overwrites_and_history_recovers_interrupted_jobs() {
         error: None,
     };
     std::fs::write(root.join(".picsharp-video-test.mp4"), b"partial").unwrap();
+    std::fs::create_dir(root.join(".picsharp-video-test")).unwrap();
+    std::fs::write(root.join(".picsharp-video-test/output.mp4"), b"partial").unwrap();
     service
         .save(&mut Data {
             jobs: vec![job],
@@ -121,6 +123,7 @@ fn publication_never_overwrites_and_history_recovers_interrupted_jobs() {
     let restored = VideoService::new(root.clone());
     assert_eq!(restored.data.lock().unwrap().jobs[0].status, "cancelled");
     assert!(!root.join(".picsharp-video-test.mp4").exists());
+    assert!(!root.join(".picsharp-video-test").exists());
     assert!(temp.exists() && first.exists() && second.exists());
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -783,5 +786,69 @@ async fn cancelling_a_probe_waits_for_the_process_to_exit() {
         !alive,
         "the cancellation returned while the child was still alive"
     );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+// Uses the real encoder and moves the output parent after nonzero progress.
+#[tokio::test]
+#[ignore]
+async fn real_ffmpeg_parent_move_cleans_only_owned_work_file() {
+    let root = std::env::temp_dir().join(format!("picsharp-work-move-{}", nanoid::nanoid!()));
+    std::fs::create_dir_all(&root).unwrap();
+    let source = root.join("source.mp4");
+    let status = tokio::process::Command::new("ffmpeg")
+        .args(["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30", "-t", "24", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "18"])
+        .arg(&source).status().await.unwrap();
+    assert!(status.success());
+    let source_before = std::fs::read(&source).unwrap();
+    let directory = root.join("draft");
+    let moved = root.join("delivery");
+    let work_name = ".picsharp-video-moving.mp4";
+    let cancel = Arc::new(AtomicBool::new(false));
+    let engine = Engine { ffmpeg: "ffmpeg".into(), ffprobe: "ffprobe".into() };
+    let did_move = std::cell::Cell::new(false);
+    let result = engine.compress(&source, &directory, &root.join("logs"), "moving", Preset::Compatible, &cancel, |progress| {
+        if !did_move.get() && progress.fraction > 0.0 && progress.fraction < 0.99 {
+            std::fs::rename(&directory, &moved).unwrap();
+            std::fs::create_dir(&directory).unwrap();
+            std::fs::write(directory.join(work_name), b"unrelated replacement directory file").unwrap();
+            std::fs::write(moved.join(".picsharp-video-another-task.mp4"), b"other task").unwrap();
+            did_move.set(true);
+            println!("moved at {} seconds, fraction {}", progress.seconds, progress.fraction);
+        }
+    }).await;
+    assert!(did_move.get(), "test must hit a real nonzero encoding window");
+    assert!(result.is_err(), "stale destination must not publish to the replacement directory");
+    let leftovers = moved.join(work_name).exists() || moved.join(".picsharp-video-moving").exists();
+    let decoy = std::fs::read(directory.join(work_name)).ok();
+    let other = std::fs::read(moved.join(".picsharp-video-another-task.mp4")).unwrap();
+    assert_eq!(std::fs::read(&source).unwrap(), source_before);
+    std::fs::remove_dir_all(&root).unwrap();
+    assert!(!leftovers, "owned work file must be cleaned after its parent moves");
+    assert_eq!(decoy.as_deref(), Some(b"unrelated replacement directory file".as_slice()), "cleanup must not delete an unrelated object at the old path");
+    assert_eq!(other, b"other task");
+}
+
+#[test]
+fn video_workspace_cleanup_follows_moved_parent_and_leaves_other_tasks() {
+    let root = std::env::temp_dir().join(format!("picsharp-workspace-{}", nanoid::nanoid!()));
+    let original = root.join("draft");
+    let moved = root.join("delivery/final");
+    std::fs::create_dir_all(&original).unwrap();
+    std::fs::create_dir_all(moved.parent().unwrap()).unwrap();
+    let work = super::workfile::WorkFile::new(&original, "ours").unwrap();
+    std::fs::write(&work.path, b"our partial output").unwrap();
+    let another = super::workfile::WorkFile::new(&original, "another").unwrap();
+    std::fs::write(&another.path, b"another active task").unwrap();
+    std::fs::rename(&original, &moved).unwrap();
+    std::fs::create_dir(&original).unwrap();
+    std::fs::create_dir(original.join(".picsharp-video-ours")).unwrap();
+    std::fs::write(original.join(".picsharp-video-ours/output.mp4"), b"unrelated").unwrap();
+    drop(work);
+    assert!(!moved.join(".picsharp-video-ours").exists());
+    assert_eq!(std::fs::read(original.join(".picsharp-video-ours/output.mp4")).unwrap(), b"unrelated");
+    assert_eq!(std::fs::read(moved.join(".picsharp-video-another/output.mp4")).unwrap(), b"another active task");
+    drop(another);
+    assert!(!moved.join(".picsharp-video-another").exists());
     std::fs::remove_dir_all(root).unwrap();
 }
