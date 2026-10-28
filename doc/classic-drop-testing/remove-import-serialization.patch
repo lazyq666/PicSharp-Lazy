@@ -1,0 +1,20 @@
+--- full/pages/compression/classic-layout.tsx
++++ remove-import-serialization/pages/compression/classic-layout.tsx
+@@ -45,7 +45,7 @@
+         revision === useCompressionStore.getState().batchRevision;
+ 
+       // Serialize native parsing too: a repeated video must not be registered twice.
+-      const importing = queue.current.then(async () => {
++      const importing = (async () => {
+         if (!isCurrent()) return;
+         progressRef.current?.show(true);
+         try {
+@@ -69,7 +69,7 @@
+         } finally {
+           if (session === lifetime.current) progressRef.current?.done();
+         }
+-      });
++      })();
+       queue.current = importing;
+       return importing;
+     },

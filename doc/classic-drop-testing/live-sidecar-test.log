@@ -1,0 +1,17 @@
+<-- POST /stream/watch/new-images
+--> POST /stream/watch/new-images 200 3ms
+TAP version 13
+# Subtest: live watch imports nested mixed media after video copies finish, excluding outputs
+ok 1 - live watch imports nested mixed media after video copies finish, excluding outputs
+  ---
+  duration_ms: 9889.788875
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 9989.574708

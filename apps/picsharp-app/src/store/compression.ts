@@ -5,6 +5,7 @@ import { clearImageViewerCache } from '@/components/image-viewer/cache';
 import { trimWatchHistory } from '@/utils/watch-history';
 
 interface CompressionState {
+  batchRevision: number;
   working: boolean;
   inCompressing: boolean;
   watchingFolder: string;
@@ -19,12 +20,14 @@ interface CompressionAction {
   setInCompressing: (inCompressing: boolean) => void;
   setWatchingFolder: (path: string) => void;
   setFiles: (files: FileInfo[]) => void;
+  appendFiles: (files: FileInfo[]) => void;
   removeFile: (path: string) => void;
   reset: () => void;
   trimWatchHistory: () => void;
 }
 
 const useCompressionStore = create<CompressionState & CompressionAction>((set, get) => ({
+  batchRevision: 0,
   working: false,
   eventEmitter: new EventEmitter(),
   watchingFolder: '',
@@ -44,9 +47,25 @@ const useCompressionStore = create<CompressionState & CompressionAction>((set, g
   setFiles: (files: FileInfo[]) => {
     if (get().watchingFolder) files = trimWatchHistory(files);
     set({
+      batchRevision: get().batchRevision + 1,
       files,
       fileMap: new Map(files.map((file) => [file.path, file])),
       selectedFiles: files.map((file) => file.path),
+    });
+  },
+  appendFiles: (incoming: FileInfo[]) => {
+    const state = get();
+    const fileMap = new Map(state.fileMap);
+    const added = incoming.filter((file) => {
+      if (fileMap.has(file.path)) return false;
+      fileMap.set(file.path, file);
+      return true;
+    });
+    if (!added.length) return;
+    set({
+      files: [...state.files, ...added],
+      fileMap,
+      selectedFiles: [...state.selectedFiles, ...added.map((file) => file.path)],
     });
   },
   trimWatchHistory: () => {
@@ -78,6 +97,7 @@ const useCompressionStore = create<CompressionState & CompressionAction>((set, g
     clearImageViewerCache();
     useAppStore.getState().clearImageCache();
     set({
+      batchRevision: get().batchRevision + 1,
       working: false,
       inCompressing: false,
       watchingFolder: '',

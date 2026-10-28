@@ -1,0 +1,39 @@
+TAP version 13
+# Subtest: classic drop: resetting the batch invalidates imports already being parsed or queued
+not ok 1 - classic drop: resetting the batch invalidates imports already being parsed or queued
+  ---
+  duration_ms: 62.919
+  type: 'test'
+  location: '/Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/tests/classic-drop.test.mjs:166:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+    + [
+    +   '/fixture/late.png',
+    +   '/fixture/queued.png'
+    + ]
+    - []
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+    0: '/fixture/late.png'
+    1: '/fixture/queued.png'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/tests/classic-drop.test.mjs:177:12)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 145.176625

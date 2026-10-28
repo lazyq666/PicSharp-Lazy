@@ -1,0 +1,18 @@
+--- full/pages/compression/classic-layout.tsx
++++ remove-inactive-import-guard/pages/compression/classic-layout.tsx
+@@ -32,7 +32,6 @@
+     (paths: string[] | null) => {
+       if (
+         !paths?.length ||
+-        !active.current ||
+         batchRevision !== useCompressionStore.getState().batchRevision
+       )
+         return Promise.resolve();
+@@ -40,7 +39,6 @@
+       const session = lifetime.current;
+       const revision = batchRevision;
+       const isCurrent = () =>
+-        active.current &&
+         session === lifetime.current &&
+         revision === useCompressionStore.getState().batchRevision;
+ 

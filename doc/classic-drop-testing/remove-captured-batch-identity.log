@@ -1,0 +1,32 @@
+TAP version 13
+# Subtest: classic import: a captured dialog callback cannot import into a reset batch
+not ok 1 - classic import: a captured dialog callback cannot import into a reset batch
+  ---
+  duration_ms: 62.364291
+  type: 'test'
+  location: '/Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/tests/classic-drop.test.mjs:273:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/tests/classic-drop.test.mjs:281:12)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 147.301375

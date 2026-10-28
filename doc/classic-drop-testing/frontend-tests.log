@@ -1,0 +1,206 @@
+
+> @picsharp/picsharp-app@2.2.8 test
+> cd ../.. && node --import ./packages/picsharp-sidecar/node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 apps/picsharp-app/tests/*.test.*
+
+TAP version 13
+# Subtest: classic drop: png then png appends through the guide-to-workspace transition
+ok 1 - classic drop: png then png appends through the guide-to-workspace transition
+  ---
+  duration_ms: 126.994
+  type: 'test'
+  ...
+# Subtest: classic drop: png then mp4 appends through the guide-to-workspace transition
+ok 2 - classic drop: png then mp4 appends through the guide-to-workspace transition
+  ---
+  duration_ms: 82.883875
+  type: 'test'
+  ...
+# Subtest: classic drop: mp4 then png appends through the guide-to-workspace transition
+ok 3 - classic drop: mp4 then png appends through the guide-to-workspace transition
+  ---
+  duration_ms: 74.23475
+  type: 'test'
+  ...
+# Subtest: classic drop: duplicates preserve an active video object, progress, and selection
+ok 4 - classic drop: duplicates preserve an active video object, progress, and selection
+  ---
+  duration_ms: 71.636708
+  type: 'test'
+  ...
+# Subtest: classic drop: completed results survive later imports and the new file remains pending
+ok 5 - classic drop: completed results survive later imports and the new file remains pending
+  ---
+  duration_ms: 69.627583
+  type: 'test'
+  ...
+# Subtest: classic drop: rapid imports keep drop order while the first parse is delayed
+ok 6 - classic drop: rapid imports keep drop order while the first parse is delayed
+  ---
+  duration_ms: 73.113541
+  type: 'test'
+  ...
+# Subtest: classic drop: a failed or unsupported import leaves the existing batch usable
+ok 7 - classic drop: a failed or unsupported import leaves the existing batch usable
+  ---
+  duration_ms: 72.665167
+  type: 'test'
+  ...
+# Subtest: classic drop: switching modes removes its listener and remounting creates only one
+ok 8 - classic drop: switching modes removes its listener and remounting creates only one
+  ---
+  duration_ms: 67.327375
+  type: 'test'
+  ...
+# Subtest: classic drop: a native subscription that resolves after unmount is immediately removed
+ok 9 - classic drop: a native subscription that resolves after unmount is immediately removed
+  ---
+  duration_ms: 68.474959
+  type: 'test'
+  ...
+# Subtest: classic drop: a parse finishing after switching modes cannot repopulate the batch
+ok 10 - classic drop: a parse finishing after switching modes cannot repopulate the batch
+  ---
+  duration_ms: 67.961167
+  type: 'test'
+  ...
+# Subtest: classic drop: resetting the batch invalidates imports already being parsed or queued
+ok 11 - classic drop: resetting the batch invalidates imports already being parsed or queued
+  ---
+  duration_ms: 72.718458
+  type: 'test'
+  ...
+# Subtest: classic append: the store preserves existing file identity and deduplicates repeated paths
+ok 12 - classic append: the store preserves existing file identity and deduplicates repeated paths
+  ---
+  duration_ms: 73.021875
+  type: 'test'
+  ...
+# Subtest: classic video: a delayed parse cannot register a native job after leaving the batch
+ok 13 - classic video: a delayed parse cannot register a native job after leaving the batch
+  ---
+  duration_ms: 72.326584
+  type: 'test'
+  ...
+# Subtest: classic video: a delayed parse cannot register a native job after resetting the batch
+ok 14 - classic video: a delayed parse cannot register a native job after resetting the batch
+  ---
+  duration_ms: 70.215292
+  type: 'test'
+  ...
+# Subtest: classic import: a captured dialog callback cannot import after leaving the batch
+ok 15 - classic import: a captured dialog callback cannot import after leaving the batch
+  ---
+  duration_ms: 68.244458
+  type: 'test'
+  ...
+# Subtest: classic import: a captured dialog callback cannot import into a reset batch
+ok 16 - classic import: a captured dialog callback cannot import into a reset batch
+  ---
+  duration_ms: 67.33425
+  type: 'test'
+  ...
+# Subtest: classic video: directory expansion excludes existing videos before registering new jobs
+ok 17 - classic video: directory expansion excludes existing videos before registering new jobs
+  ---
+  duration_ms: 69.563084
+  type: 'test'
+  ...
+# Subtest: WATCH-009: displayed image renders when the sidecar disconnects
+ok 18 - WATCH-009: displayed image renders when the sidecar disconnects
+  ---
+  duration_ms: 0.505417
+  type: 'test'
+  ...
+# Subtest: WATCH-010: confirming an empty edited tag with Return removes it
+ok 19 - WATCH-010: confirming an empty edited tag with Return removes it
+  ---
+  duration_ms: 0.908208
+  type: 'test'
+  ...
+# Subtest: WATCH-010: blank blur confirmation removes the tag; normal edit and remove remain available
+ok 20 - WATCH-010: blank blur confirmation removes the tag; normal edit and remove remain available
+  ---
+  duration_ms: 0.197958
+  type: 'test'
+  ...
+# Subtest: WATCH-014: a stale card never removes a newer file at the old output path
+ok 21 - WATCH-014: a stale card never removes a newer file at the old output path
+  ---
+  duration_ms: 33.416916
+  type: 'test'
+  ...
+# Subtest: Undo forwards output identities and awaits the service before reporting success
+ok 22 - Undo forwards output identities and awaits the service before reporting success
+  ---
+  duration_ms: 49.47225
+  type: 'test'
+  ...
+# Subtest: healthy candidates continue while a damaged record reports its affected path
+ok 23 - healthy candidates continue while a damaged record reports its affected path
+  ---
+  duration_ms: 18.40325
+  type: 'test'
+  ...
+# Subtest: a partial watch fault reaches a persistent visible warning without stopping healthy work
+ok 24 - a partial watch fault reaches a persistent visible warning without stopping healthy work
+  ---
+  duration_ms: 39.617666
+  type: 'test'
+  ...
+# Subtest: a continuous watch retains active jobs and the latest 500 finished cards
+ok 25 - a continuous watch retains active jobs and the latest 500 finished cards
+  ---
+  duration_ms: 1.139791
+  type: 'test'
+  ...
+# Subtest: no unnecessary store update when the watch is below its history limit
+ok 26 - no unnecessary store update when the watch is below its history limit
+  ---
+  duration_ms: 0.050792
+  type: 'test'
+  ...
+# Subtest: replacement while compressing keeps only the latest version and resumes after completion
+ok 27 - replacement while compressing keeps only the latest version and resumes after completion
+  ---
+  duration_ms: 0.978416
+  type: 'test'
+  ...
+# Subtest: a slow version check or failed request cannot replace a newer queued event
+ok 28 - a slow version check or failed request cannot replace a newer queued event
+  ---
+  duration_ms: 0.149125
+  type: 'test'
+  ...
+# Subtest: identical contents at different paths remain separate inputs; batches are bounded
+ok 29 - identical contents at different paths remain separate inputs; batches are bounded
+  ---
+  duration_ms: 0.341708
+  type: 'test'
+  ...
+# Subtest: a file event queued before completion is rechecked against output records before execution
+ok 30 - a file event queued before completion is rechecked against output records before execution
+  ---
+  duration_ms: 17.831833
+  type: 'test'
+  ...
+# Subtest: watch ignore skips .9 images without matching directories, similar names or videos
+ok 31 - watch ignore skips .9 images without matching directories, similar names or videos
+  ---
+  duration_ms: 0.45325
+  type: 'test'
+  ...
+# Subtest: changing the ignore setting applies to the next queued batch without restarting the watch
+ok 32 - changing the ignore setting applies to the next queued batch without restarting the watch
+  ---
+  duration_ms: 0.249333
+  type: 'test'
+  ...
+1..32
+# tests 32
+# suites 0
+# pass 32
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2261.364459

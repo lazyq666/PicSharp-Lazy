@@ -1,0 +1,518 @@
+TAP version 13
+# Subtest: classic drop: png then png appends through the guide-to-workspace transition
+ok 1 - classic drop: png then png appends through the guide-to-workspace transition
+  ---
+  duration_ms: 131.471291
+  ...
+# Subtest: classic drop: png then mp4 appends through the guide-to-workspace transition
+ok 2 - classic drop: png then mp4 appends through the guide-to-workspace transition
+  ---
+  duration_ms: 82.499333
+  ...
+# Subtest: classic drop: mp4 then png appends through the guide-to-workspace transition
+ok 3 - classic drop: mp4 then png appends through the guide-to-workspace transition
+  ---
+  duration_ms: 78.277916
+  ...
+# Subtest: classic drop: duplicates preserve an active video object, progress, and selection
+ok 4 - classic drop: duplicates preserve an active video object, progress, and selection
+  ---
+  duration_ms: 68.67175
+  ...
+# Subtest: classic drop: completed results survive later imports and the new file remains pending
+ok 5 - classic drop: completed results survive later imports and the new file remains pending
+  ---
+  duration_ms: 69.373917
+  ...
+# Subtest: classic drop: rapid imports keep drop order while the first parse is delayed
+ok 6 - classic drop: rapid imports keep drop order while the first parse is delayed
+  ---
+  duration_ms: 71.695959
+  ...
+# Subtest: classic drop: a failed or unsupported import leaves the existing batch usable
+ok 7 - classic drop: a failed or unsupported import leaves the existing batch usable
+  ---
+  duration_ms: 65.226167
+  ...
+# Subtest: classic drop: switching modes removes its listener and remounting creates only one
+ok 8 - classic drop: switching modes removes its listener and remounting creates only one
+  ---
+  duration_ms: 68.509583
+  ...
+# Subtest: classic drop: a native subscription that resolves after unmount is immediately removed
+ok 9 - classic drop: a native subscription that resolves after unmount is immediately removed
+  ---
+  duration_ms: 66.822541
+  ...
+# Subtest: classic drop: a parse finishing after switching modes cannot repopulate the batch
+ok 10 - classic drop: a parse finishing after switching modes cannot repopulate the batch
+  ---
+  duration_ms: 67.886167
+  ...
+# Subtest: classic drop: resetting the batch invalidates imports already being parsed or queued
+ok 11 - classic drop: resetting the batch invalidates imports already being parsed or queued
+  ---
+  duration_ms: 72.551083
+  ...
+# Subtest: classic append: the store preserves existing file identity and deduplicates repeated paths
+ok 12 - classic append: the store preserves existing file identity and deduplicates repeated paths
+  ---
+  duration_ms: 68.479666
+  ...
+# Subtest: classic video: a delayed parse cannot register a native job after leaving the batch
+ok 13 - classic video: a delayed parse cannot register a native job after leaving the batch
+  ---
+  duration_ms: 67.622334
+  ...
+# Subtest: classic video: a delayed parse cannot register a native job after resetting the batch
+ok 14 - classic video: a delayed parse cannot register a native job after resetting the batch
+  ---
+  duration_ms: 68.972333
+  ...
+# Subtest: classic import: a captured dialog callback cannot import after leaving the batch
+ok 15 - classic import: a captured dialog callback cannot import after leaving the batch
+  ---
+  duration_ms: 64.999792
+  ...
+# Subtest: classic import: a captured dialog callback cannot import into a reset batch
+ok 16 - classic import: a captured dialog callback cannot import into a reset batch
+  ---
+  duration_ms: 68.559667
+  ...
+# Subtest: classic video: directory expansion excludes existing videos before registering new jobs
+ok 17 - classic video: directory expansion excludes existing videos before registering new jobs
+  ---
+  duration_ms: 69.515208
+  ...
+# Subtest: WATCH-009: displayed image renders when the sidecar disconnects
+ok 18 - WATCH-009: displayed image renders when the sidecar disconnects
+  ---
+  duration_ms: 0.441375
+  ...
+# Subtest: WATCH-010: confirming an empty edited tag with Return removes it
+ok 19 - WATCH-010: confirming an empty edited tag with Return removes it
+  ---
+  duration_ms: 0.659208
+  ...
+# Subtest: WATCH-010: blank blur confirmation removes the tag; normal edit and remove remain available
+ok 20 - WATCH-010: blank blur confirmation removes the tag; normal edit and remove remain available
+  ---
+  duration_ms: 0.171375
+  ...
+# Subtest: WATCH-014: a stale card never removes a newer file at the old output path
+ok 21 - WATCH-014: a stale card never removes a newer file at the old output path
+  ---
+  duration_ms: 33.755166
+  ...
+# Subtest: Undo forwards output identities and awaits the service before reporting success
+ok 22 - Undo forwards output identities and awaits the service before reporting success
+  ---
+  duration_ms: 43.713875
+  ...
+# Subtest: healthy candidates continue while a damaged record reports its affected path
+ok 23 - healthy candidates continue while a damaged record reports its affected path
+  ---
+  duration_ms: 8.72225
+  ...
+# Subtest: a partial watch fault reaches a persistent visible warning without stopping healthy work
+ok 24 - a partial watch fault reaches a persistent visible warning without stopping healthy work
+  ---
+  duration_ms: 41.501209
+  ...
+# Subtest: a continuous watch retains active jobs and the latest 500 finished cards
+ok 25 - a continuous watch retains active jobs and the latest 500 finished cards
+  ---
+  duration_ms: 0.842583
+  ...
+# Subtest: no unnecessary store update when the watch is below its history limit
+ok 26 - no unnecessary store update when the watch is below its history limit
+  ---
+  duration_ms: 0.059291
+  ...
+# Subtest: replacement while compressing keeps only the latest version and resumes after completion
+ok 27 - replacement while compressing keeps only the latest version and resumes after completion
+  ---
+  duration_ms: 0.661458
+  ...
+# Subtest: a slow version check or failed request cannot replace a newer queued event
+ok 28 - a slow version check or failed request cannot replace a newer queued event
+  ---
+  duration_ms: 0.109125
+  ...
+# Subtest: identical contents at different paths remain separate inputs; batches are bounded
+ok 29 - identical contents at different paths remain separate inputs; batches are bounded
+  ---
+  duration_ms: 0.333042
+  ...
+# Subtest: a file event queued before completion is rechecked against output records before execution
+ok 30 - a file event queued before completion is rechecked against output records before execution
+  ---
+  duration_ms: 8.722208
+  ...
+# Subtest: watch ignore skips .9 images without matching directories, similar names or videos
+ok 31 - watch ignore skips .9 images without matching directories, similar names or videos
+  ---
+  duration_ms: 0.467541
+  ...
+# Subtest: changing the ignore setting applies to the next queued batch without restarting the watch
+ok 32 - changing the ignore setting applies to the next queued batch without restarting the watch
+  ---
+  duration_ms: 0.178584
+  ...
+# Subtest: WATCH-001 legacy upgrade: real watch baseline sees the old path, then pure rename must skip
+ok 33 - WATCH-001 legacy upgrade: real watch baseline sees the old path, then pure rename must skip
+  ---
+  duration_ms: 1454.570958
+  ...
+# Subtest: legacy exact-path check keeps old output protection and does not globally suppress byte-identical copies or V2
+ok 34 - legacy exact-path check keeps old output protection and does not globally suppress byte-identical copies or V2
+  ---
+  duration_ms: 41.202375
+  ...
+# Subtest: legacy first encounter after an earlier rename records its migration boundary without global content dedupe
+ok 35 - legacy first encounter after an earlier rename records its migration boundary without global content dedupe
+  ---
+  duration_ms: 38.464583
+  ...
+# {"scenario":"old path absent before any upgraded validation","legacyRecord":{"path":"/private/var/folders/_c/rrvl8_rd3fn74f1yrn4c47rh0000gn/T/picsharp-legacy-output-eoJCB2/watched/finished.png","version":"16777230:254613055:237:1793180545638178805:1793180545666319258","fingerprint":"sha256:647df98d22ad176d1a4d3e3e905c807beef179d9a572f34b304b33be26d601e1"},"newPathVersion":"16777230:254613055:237:1793180545638178805:1793180545672453144","observedStatus":"input","samePhysicalObject":true}
+# Subtest: WATCH-001 moved outputs stay protected; independent copies and new export remain inputs
+ok 36 - WATCH-001 moved outputs stay protected; independent copies and new export remain inputs
+  ---
+  duration_ms: 41.110083
+  ...
+# Subtest: WATCH-005 new export in the final anchored publication syscall window survives
+ok 37 - WATCH-005 new export in the final anchored publication syscall window survives
+  ---
+  duration_ms: 40.580083
+  ...
+# Subtest: WATCH-008 bad record isolates its candidate and returns a diagnostic with healthy input
+ok 38 - WATCH-008 bad record isolates its candidate and returns a diagnostic with healthy input
+  ---
+  duration_ms: 43.533083
+  ...
+# Subtest: WATCH-011 valid 1022-byte source path does not grow for internal files
+ok 39 - WATCH-011 valid 1022-byte source path does not grow for internal files
+  ---
+  duration_ms: 40.692625
+  ...
+# Subtest: WATCH-012 stale hardlink metadata refreshes to an eligible current candidate
+ok 40 - WATCH-012 stale hardlink metadata refreshes to an eligible current candidate
+  ---
+  duration_ms: 39.57225
+  ...
+# {"case":"WATCH-005","seam":"claim","iteration":1,"injected":1,"V2Preserved":true,"scope":"last version check completed; injection immediately before actual directory-anchor syscall request"}
+# Subtest: WATCH-005 anchored claim final syscall request window 1
+ok 41 - WATCH-005 anchored claim final syscall request window 1
+  ---
+  duration_ms: 35.822166
+  ...
+# {"case":"WATCH-005","seam":"claim","iteration":2,"injected":1,"V2Preserved":true,"scope":"last version check completed; injection immediately before actual directory-anchor syscall request"}
+# Subtest: WATCH-005 anchored claim final syscall request window 2
+ok 42 - WATCH-005 anchored claim final syscall request window 2
+  ---
+  duration_ms: 34.764167
+  ...
+# {"case":"WATCH-005","seam":"claim","iteration":3,"injected":1,"V2Preserved":true,"scope":"last version check completed; injection immediately before actual directory-anchor syscall request"}
+# Subtest: WATCH-005 anchored claim final syscall request window 3
+ok 43 - WATCH-005 anchored claim final syscall request window 3
+  ---
+  duration_ms: 33.871334
+  ...
+# {"case":"WATCH-005","seam":"publish","iteration":1,"injected":1,"V2Preserved":true,"scope":"last version check completed; injection immediately before actual directory-anchor syscall request"}
+# Subtest: WATCH-005 anchored publish final syscall request window 1
+ok 44 - WATCH-005 anchored publish final syscall request window 1
+  ---
+  duration_ms: 34.715666
+  ...
+# {"case":"WATCH-005","seam":"publish","iteration":2,"injected":1,"V2Preserved":true,"scope":"last version check completed; injection immediately before actual directory-anchor syscall request"}
+# Subtest: WATCH-005 anchored publish final syscall request window 2
+ok 45 - WATCH-005 anchored publish final syscall request window 2
+  ---
+  duration_ms: 36.476208
+  ...
+# {"case":"WATCH-005","seam":"publish","iteration":3,"injected":1,"V2Preserved":true,"scope":"last version check completed; injection immediately before actual directory-anchor syscall request"}
+# Subtest: WATCH-005 anchored publish final syscall request window 3
+ok 46 - WATCH-005 anchored publish final syscall request window 3
+  ---
+  duration_ms: 35.5185
+  ...
+# Subtest: WATCH-006 image work stays outside a moved source parent and is removed
+ok 47 - WATCH-006 image work stays outside a moved source parent and is removed
+  ---
+  duration_ms: 4.434
+  ...
+# {"case":"WATCH-012","iteration":1,"staleRejected":true,"replacementDelivered":true,"bothProcessed":true}
+# Subtest: WATCH-012 production resampler supplies and processes the hardlink replacement candidate 1
+ok 48 - WATCH-012 production resampler supplies and processes the hardlink replacement candidate 1
+  ---
+  duration_ms: 842.849167
+  ...
+# {"case":"WATCH-012","iteration":2,"staleRejected":true,"replacementDelivered":true,"bothProcessed":true}
+# Subtest: WATCH-012 production resampler supplies and processes the hardlink replacement candidate 2
+ok 49 - WATCH-012 production resampler supplies and processes the hardlink replacement candidate 2
+  ---
+  duration_ms: 862.485833
+  ...
+# {"case":"WATCH-012","iteration":3,"staleRejected":true,"replacementDelivered":true,"bothProcessed":true}
+# Subtest: WATCH-012 production resampler supplies and processes the hardlink replacement candidate 3
+ok 50 - WATCH-012 production resampler supplies and processes the hardlink replacement candidate 3
+  ---
+  duration_ms: 842.804958
+  ...
+# Subtest: WATCH-001 moved output wins identity lookup over an older record at its new pathname
+ok 51 - WATCH-001 moved output wins identity lookup over an older record at its new pathname
+  ---
+  duration_ms: 61.371125
+  ...
+# {"case":"WATCH-006","recreate":false,"injected":1,"movedSourceValid":true,"newNamespaceUnmodified":true}
+# Subtest: WATCH-006 moved parent after actual claim remains addressed by anchored directory; recreate=false
+ok 52 - WATCH-006 moved parent after actual claim remains addressed by anchored directory; recreate=false
+  ---
+  duration_ms: 37.250334
+  ...
+# {"case":"WATCH-006","recreate":true,"injected":1,"movedSourceValid":true,"newNamespaceUnmodified":true}
+# Subtest: WATCH-006 moved parent after actual claim remains addressed by anchored directory; recreate=true
+ok 53 - WATCH-006 moved parent after actual claim remains addressed by anchored directory; recreate=true
+  ---
+  duration_ms: 34.692916
+  ...
+# Subtest: directory anchor closes after rollback conflict and retains a real recovery file
+ok 54 - directory anchor closes after rollback conflict and retains a real recovery file
+  ---
+  duration_ms: 28.880375
+  ...
+# Subtest: directory anchor restores the original on owner EOF after a source-directory move
+ok 55 - directory anchor restores the original on owner EOF after a source-directory move
+  ---
+  duration_ms: 81.382292
+  ...
+# Subtest: directory anchor accepts leading-dash filenames as data
+ok 56 - directory anchor accepts leading-dash filenames as data
+  ---
+  duration_ms: 34.028959
+  ...
+# Subtest: compressed image fingerprints survive metadata changes and restarts
+ok 57 - compressed image fingerprints survive metadata changes and restarts
+  ---
+  duration_ms: 42.564208
+  ...
+# Subtest: unchanged outputs skip content reads; a replacement during fingerprinting is deferred
+ok 58 - unchanged outputs skip content reads; a replacement during fingerprinting is deferred
+  ---
+  duration_ms: 36.139834
+  ...
+# Subtest: legacy output markers never assume changed bytes are already compressed
+ok 59 - legacy output markers never assume changed bytes are already compressed
+  ---
+  duration_ms: 36.962583
+  ...
+# Subtest: live image watch ignores preview attributes but imports in-place and atomic re-exports
+ok 60 - live image watch ignores preview attributes but imports in-place and atomic re-exports
+  ---
+  duration_ms: 1459.740291
+  ...
+# Subtest: a replacement during output registration is never marked as compressed
+ok 61 - a replacement during output registration is never marked as compressed
+  ---
+  duration_ms: 31.638583
+  ...
+# Subtest: watched images kept because of the savings threshold are still marked as processed
+ok 62 - watched images kept because of the savings threshold are still marked as processed
+  ---
+  duration_ms: 73.619875
+  ...
+# Subtest: durable output records are version-specific, including equal-size/mtime replacements
+ok 63 - durable output records are version-specific, including equal-size/mtime replacements
+  ---
+  duration_ms: 42.017625
+  ...
+# Subtest: a slow publication record never leaks its output into monitoring
+ok 64 - a slow publication record never leaks its output into monitoring
+  ---
+  duration_ms: 394.228208
+  ...
+# Subtest: overwrite does not destroy a source replaced while its old version was compressing
+ok 65 - overwrite does not destroy a source replaced while its old version was compressing
+  ---
+  duration_ms: 2.73425
+  ...
+# Subtest: real JPEG save-as and conversion outputs do not re-enter a live watch; replacements do
+ok 66 - real JPEG save-as and conversion outputs do not re-enter a live watch; replacements do
+  ---
+  duration_ms: 927.555917
+  ...
+# Subtest: PNG lossless and SVG overwrite/save-as paths all register their generated versions
+ok 67 - PNG lossless and SVG overwrite/save-as paths all register their generated versions
+  ---
+  duration_ms: 169.498375
+  ...
+# Subtest: TinyPNG save-as returns the output hash and protects converted files without a network request
+ok 68 - TinyPNG save-as returns the output hash and protects converted files without a network request
+  ---
+  duration_ms: 68.920625
+  ...
+# Subtest: real filter route rejects late queued output events and stale versions but accepts replacements
+ok 69 - real filter route rejects late queued output events and stale versions but accepts replacements
+  ---
+  duration_ms: 7.664625
+  ...
+# Subtest: WATCH-014: moved old output and new file at its old path survive stale Undo
+ok 70 - WATCH-014: moved old output and new file at its old path survive stale Undo
+  ---
+  duration_ms: 42.932
+  ...
+# Subtest: WATCH-014: a new export after publication cannot be attributed to the old result card
+ok 71 - WATCH-014: a new export after publication cannot be attributed to the old result card
+  ---
+  duration_ms: 37.94525
+  ...
+# Subtest: WATCH-014: a replacement at the final claim rename is restored, never deleted
+ok 72 - WATCH-014: a replacement at the final claim rename is restored, never deleted
+  ---
+  duration_ms: 66.299083
+  ...
+# Subtest: Undo after claim cannot restore into a different parent recreated at the old pathname
+ok 73 - Undo after claim cannot restore into a different parent recreated at the old pathname
+  ---
+  duration_ms: 68.485833
+  ...
+# Subtest: normal SaveFolder Undo awaits deletion; missing backup and unidentifiable cards fail safely
+ok 74 - normal SaveFolder Undo awaits deletion; missing backup and unidentifiable cards fail safely
+  ---
+  duration_ms: 91.829667
+  ...
+# Subtest: conversion replacement rejects Undo and restores an already claimed main result
+ok 75 - conversion replacement rejects Undo and restores an already claimed main result
+  ---
+  duration_ms: 97.4825
+  ...
+# Subtest: rollback conflict preserves the occupied conversion and still restores other targets
+ok 76 - rollback conflict preserves the occupied conversion and still restores other targets
+  ---
+  duration_ms: 152.305083
+  ...
+# Subtest: WATCH-013: restored original stays untouched under real watch and a later new export compresses
+ok 77 - WATCH-013: restored original stays untouched under real watch and a later new export compresses
+  ---
+  duration_ms: 2411.277291
+  ...
+# Subtest: WATCH-013: a fresh export during backup copy wins over Undo restoration
+ok 78 - WATCH-013: a fresh export during backup copy wins over Undo restoration
+  ---
+  duration_ms: 69.207625
+  ...
+# Subtest: Undo HTTP route uses the real identity-protected service and validates requests
+ok 79 - Undo HTTP route uses the real identity-protected service and validates requests
+  ---
+  duration_ms: 76.29125
+  ...
+# Subtest: live watch imports nested mixed media after video copies finish, excluding outputs
+ok 80 - live watch imports nested mixed media after video copies finish, excluding outputs # SKIP
+  ---
+  duration_ms: 0.433
+  ...
+# {"videoMiBRead":0,"imageMiBRead":0,"peakMiB":85.515625}
+# Subtest: mixed-media watch reads no image/video contents, imports changed versions, and closes cleanly
+ok 81 - mixed-media watch reads no image/video contents, imports changed versions, and closes cleanly
+  ---
+  duration_ms: 9288.351209
+  ...
+# Subtest: mixed media filters include uppercase video and exclude generated outputs
+ok 82 - mixed media filters include uppercase video and exclude generated outputs
+  ---
+  duration_ms: 0.7135
+  ...
+# Subtest: video import waits for stable writes, deduplicates events, and detects replacement
+ok 83 - video import waits for stable writes, deduplicates events, and detects replacement
+  ---
+  duration_ms: 913.319916
+  ...
+# Subtest: images wait for stable writes, and stopping cancels pending imports
+ok 84 - images wait for stable writes, and stopping cancels pending imports
+  ---
+  duration_ms: 355.607917
+  ...
+# Subtest: same-size/mtime edits and atomic replacements are distinct versions of images and videos
+ok 85 - same-size/mtime edits and atomic replacements are distinct versions of images and videos
+  ---
+  duration_ms: 687.1285
+  ...
+# Subtest: an empty file is not imported, and a later write is handled normally
+ok 86 - an empty file is not imported, and a later write is handled normally
+  ---
+  duration_ms: 213.563833
+  ...
+# Subtest: a delayed error from the removed version cannot cancel a replacement
+ok 87 - a delayed error from the removed version cannot cancel a replacement
+  ---
+  duration_ms: 106.183542
+  ...
+# Subtest: video deduplication is bounded and removal drops pending work
+ok 88 - video deduplication is bounded and removal drops pending work
+  ---
+  duration_ms: 506.048875
+  ...
+# Subtest: video watcher handles moved directories and replacements without reading video content
+ok 89 - video watcher handles moved directories and replacements without reading video content
+  ---
+  duration_ms: 562.709959
+  ...
+# Subtest: directory reconciliation does not reimport existing files; removing the root closes the watch
+ok 90 - directory reconciliation does not reimport existing files; removing the root closes the watch
+  ---
+  duration_ms: 1015.78975
+  ...
+# Subtest: WATCH-002/010 filename glob filters actual watch imports
+ok 91 - WATCH-002/010 filename glob filters actual watch imports
+  ---
+  duration_ms: 290.165292
+  ...
+# Subtest: WATCH-002/010 directory glob filters actual watch imports
+ok 92 - WATCH-002/010 directory glob filters actual watch imports
+  ---
+  duration_ms: 288.708958
+  ...
+# Subtest: WATCH-002/010 literal path filters actual watch imports
+ok 93 - WATCH-002/010 literal path filters actual watch imports
+  ---
+  duration_ms: 287.759709
+  ...
+# Subtest: WATCH-002/010 empty ignored rule filters actual watch imports
+ok 94 - WATCH-002/010 empty ignored rule filters actual watch imports
+  ---
+  duration_ms: 247.520834
+  ...
+# Subtest: WATCH-003 SSE reports the inaccessible subtree while healthy images still arrive
+ok 95 - WATCH-003 SSE reports the inaccessible subtree while healthy images still arrive
+  ---
+  duration_ms: 1110.457167
+  ...
+# Subtest: work directory descendants are excluded: /watch/PicSharp Videos/.picsharp-video-job/output.mp4
+ok 96 - work directory descendants are excluded: /watch/PicSharp Videos/.picsharp-video-job/output.mp4
+  ---
+  duration_ms: 0.6145
+  ...
+# Subtest: work directory descendants are excluded: /watch/.picsharp-image-job/output.png
+ok 97 - work directory descendants are excluded: /watch/.picsharp-image-job/output.png
+  ---
+  duration_ms: 0.094166
+  ...
+# Subtest: work directory descendants are excluded: C:\\watch\\PicSharp Videos\\.picsharp-video-job\\output.mp4
+ok 98 - work directory descendants are excluded: C:\\watch\\PicSharp Videos\\.picsharp-video-job\\output.mp4
+  ---
+  duration_ms: 0.057417
+  ...
+# Subtest: real watcher ignores media written inside task work directories while importing normal nested video
+ok 99 - real watcher ignores media written inside task work directories while importing normal nested video
+  ---
+  duration_ms: 285.140166
+  ...
+1..99
+# tests 99
+# suites 0
+# pass 98
+# fail 0
+# cancelled 0
+# skipped 1
+# todo 0
+# duration_ms 41607.15975

@@ -1,0 +1,11 @@
+Scope: all 2 workspace projects
+Done in 259ms using pnpm v9.15.9
+
+   ╭───────────────────────────────────────────────────────────────────╮
+   │                                                                   │
+   │                Update available! 9.15.9 → 12.15.0.                │
+   │   Changelog: https://github.com/pnpm/pnpm/releases/tag/v12.15.0   │
+   │                 Run "pnpm add -g pnpm" to update.                 │
+   │                                                                   │
+   ╰───────────────────────────────────────────────────────────────────╯
+

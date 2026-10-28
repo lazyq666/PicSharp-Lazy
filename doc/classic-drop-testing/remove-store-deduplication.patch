@@ -1,0 +1,11 @@
+--- full/store/compression.ts
++++ remove-store-deduplication/store/compression.ts
+@@ -57,7 +57,7 @@
+     const state = get();
+     const fileMap = new Map(state.fileMap);
+     const added = incoming.filter((file) => {
+-      if (fileMap.has(file.path)) return false;
++      // Ablation: accept duplicate paths.
+       fileMap.set(file.path, file);
+       return true;
+     });

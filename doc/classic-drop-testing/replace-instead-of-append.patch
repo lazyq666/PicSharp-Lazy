@@ -1,0 +1,11 @@
+--- full/pages/compression/classic-layout.tsx
++++ replace-instead-of-append/pages/compression/classic-layout.tsx
+@@ -59,7 +59,7 @@
+             return;
+           }
+           const state = useCompressionStore.getState();
+-          state.appendFiles(files);
++          state.setFiles(files);
+           state.setWorking(true);
+           if (current.current.pathname === '/compression/classic/guide') {
+             current.current.navigate('/compression/classic/workspace');

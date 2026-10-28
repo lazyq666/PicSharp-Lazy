@@ -4,6 +4,7 @@ import Compression from './pages/compression';
 import ClassicCompressionGuide from './pages/compression/classic-guide';
 import WatchCompressionGuide from './pages/compression/watch-guide';
 import CompressionClassic from './pages/compression/classic';
+import ClassicCompressionLayout from './pages/compression/classic-layout';
 import CompressionWatch from './pages/compression/watch';
 import Settings from './pages/settings';
 import SettingsGeneral from './pages/settings/general';
@@ -54,7 +55,7 @@ export default function AppRoutes() {
                 <Route index element={<Navigate to='/compression' />} />
                 <Route path='compression' element={<Compression />}>
                   <Route index element={<Navigate to='/compression/classic/guide' />} />
-                  <Route path='classic'>
+                  <Route path='classic' element={<ClassicCompressionLayout />}>
                     <Route index element={<Navigate to='/compression/classic/guide' />} />
                     <Route path='guide' element={<ClassicCompressionGuide />} />
                     <Route path='workspace' element={<CompressionClassic />} />

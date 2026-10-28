@@ -1,0 +1,73 @@
+{
+  "source_base": "e0ff7a8ffbeff11a60d50594134950ec7b3f6749",
+  "native_app": "/Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/target/release/bundle/macos/PicSharp Drag Test.app",
+  "bundle_identifier": "com.PicSharp.batch-drag-test",
+  "installed_app_replaced": false,
+  "finder_drag_end_to_end": "passed_user_report",
+  "source_sha256": {
+    "apps/picsharp-app/src/pages/compression/classic-layout.tsx": "64dcc5c8b1e7b610a17e220b5fcdc2964fdb06945804124100881e99a03e69e4",
+    "apps/picsharp-app/src/pages/compression/classic-guide.tsx": "ca6ac2f7b88120fc0fd7124da0a1c28eac18c92630aa9c656156e26df8ae0b21",
+    "apps/picsharp-app/src/routes.tsx": "4b40ccaee68d95c460b98af4b7de9911b283f51af3656c445b82663ed55bdbec",
+    "apps/picsharp-app/src/store/compression.ts": "23e7f40392b7ed6a80d045757560e17e6e0b3b4944278f1c1a740414457cce94",
+    "apps/picsharp-app/src/utils/fs.ts": "44223532cf53b5e2691175bd440b82d026188d11aeccb2a394cfc24cccdec439"
+  },
+  "binary_sha256": "8f0abe42381ac10dde3b8ce81ed873cedb7f3a44c911a20a3b558b929b48f994",
+  "node": {
+    "runtime": "20.20.2",
+    "main_run": {
+      "passed": 98,
+      "failed": 0,
+      "skipped": 1
+    },
+    "live_followup": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "frontend_node22": {
+    "passed": 32,
+    "failed": 0,
+    "skipped": 0
+  },
+  "rust": {
+    "passed": 20,
+    "failed": 0,
+    "ignored": 0
+  },
+  "new_regressions": {
+    "passed": 17,
+    "failed": 0
+  },
+  "ablation": {
+    "configurations": 11,
+    "baseline": 1,
+    "mutations": 9,
+    "full_fix": 1,
+    "expected_results_matched": true
+  },
+  "native_import_and_compression": {
+    "images": 2,
+    "videos": 1,
+    "success": true,
+    "video_output": "/private/tmp/picsharp-drag-review-20261028/PicSharp Videos/fourth-drop.mp4",
+    "video_bytes": 2870,
+    "video_codec": "av1",
+    "video_duration": 0.5,
+    "full_decode": true
+  },
+  "test_bundle_random_port": true,
+  "codesign_verify": "passed",
+  "source_unchanged_by_ablations": true,
+  "manual_drag_requested": true,
+  "native_app_left_open_for_review": true,
+  "manual_drag_validation": {
+    "date": "2026-10-28",
+    "result": "passed",
+    "evidence_source": "direct_user_report",
+    "user_statement": "我拖动了其他资源是有效的，测试通过",
+    "materials": "other resources selected by the user, not the proposed temporary fixture sequence",
+    "exact_three_to_five_card_count_observed_by_agent": false,
+    "agent_automated_cross_window_drag_verified": false
+  }
+}

@@ -1,0 +1,30 @@
+
+> @picsharp/picsharp-app@2.2.8 build
+> tsc && vite build
+
+vite v6.3.5 building for production...
+transforming...
+Browserslist: browsers data (caniuse-lite) is 18 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+✓ 5727 modules transformed.
+[plugin vite:reporter] 
+(!) /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/node_modules/@tauri-apps/api/window.js is dynamically imported by /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/src/store/trafficLight.ts, /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/src/store/trafficLight.ts but also statically imported by /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/node_modules/@tauri-apps/api/webview.js, /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/node_modules/@tauri-apps/api/webviewWindow.js, /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/src/utils/tray.ts, dynamic import will not move module into another chunk.
+
+rendering chunks...
+computing gzip size...
+dist/index.html                       1.67 kB │ gzip:   0.83 kB
+dist/assets/favicon-D00ptXa_.ico      5.56 kB
+dist/assets/index-BRtGWgOI.css       74.31 kB │ gzip:  11.91 kB
+dist/assets/index-BOEIckxh.js     1,914.36 kB │ gzip: 590.91 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 4.68s
+npm notice
+npm notice New major version of npm available! 10.9.4 -> 12.2.1
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+npm notice To update run: npm install -g npm@12.2.1
+npm notice

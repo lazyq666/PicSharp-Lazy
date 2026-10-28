@@ -1,0 +1,32 @@
+TAP version 13
+# Subtest: classic drop: rapid imports keep drop order while the first parse is delayed
+not ok 1 - classic drop: rapid imports keep drop order while the first parse is delayed
+  ---
+  duration_ms: 57.638917
+  type: 'test'
+  location: '/Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/tests/classic-drop.test.mjs:80:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    the second parse waits for the first import
+    
+    2 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 2
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/tests/classic-drop.test.mjs:87:12)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 139.2515

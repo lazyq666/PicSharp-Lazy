@@ -1,0 +1,11 @@
+--- full/utils/fs.ts
++++ remove-stale-video-registration-guard/utils/fs.ts
+@@ -48,7 +48,7 @@
+     paths,
+     validExts,
+   });
+-  if (!isCurrent()) return [];
++  // Ablation: register video jobs after a stale parse.
+   // Filter after directory expansion, before registration can reset an existing video job.
+   const candidates = parsed?.filter((item) => !excludedPaths?.has(item.path));
+   if (isValidArray(candidates)) {

@@ -1,0 +1,18 @@
+--- full/pages/compression/classic-layout.tsx
++++ remove-captured-batch-identity/pages/compression/classic-layout.tsx
+@@ -32,13 +32,12 @@
+     (paths: string[] | null) => {
+       if (
+         !paths?.length ||
+-        !active.current ||
+-        batchRevision !== useCompressionStore.getState().batchRevision
++        !active.current
+       )
+         return Promise.resolve();
+       const inputs = [...paths];
+       const session = lifetime.current;
+-      const revision = batchRevision;
++      const revision = useCompressionStore.getState().batchRevision;
+       const isCurrent = () =>
+         active.current &&
+         session === lifetime.current &&

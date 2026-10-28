@@ -1,18 +1,13 @@
-import { useEffect, useRef, useContext } from 'react';
-import { UnlistenFn } from '@tauri-apps/api/event';
-import { isFunction } from 'radash';
+import { useEffect, useContext } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { parsePaths } from '../../utils/fs';
-import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { Folder, Upload, History } from 'lucide-react';
 import useCompressionStore from '../../store/compression';
-import { CompressionContext } from '.';
-import { isValidArray, sleep } from '@/utils';
+import { isValidArray } from '@/utils';
+import { ClassicImportContext } from './classic-layout';
 import { useNavigate } from '@/hooks/useNavigate';
 import { VALID_MEDIA_EXTS } from '@/constants';
 import { useI18n } from '@/i18n';
 import { Button } from '@/components/ui/button';
-import message from '@/components/message';
 import { parseClipboardImages } from '@/utils/clipboard';
 import { downloadDir } from '@tauri-apps/api/path';
 import { AppContext } from '@/routes';
@@ -22,37 +17,11 @@ import { restoreVideoHistory } from '@/utils/video';
 import { useReport } from '@/hooks/useReport';
 
 function ClassicCompressionGuide() {
-  const { progressRef } = useContext(CompressionContext);
-  const dragDropController = useRef<UnlistenFn | null>(null);
-  const dropzoneRef = useRef<HTMLDivElement>(null);
+  const { importFiles: handleFiles } = useContext(ClassicImportContext);
   const navigate = useNavigate();
   const t = useI18n();
   const { messageApi } = useContext(AppContext);
   const r = useReport();
-
-  const handleFiles = async (paths: string[] | null) => {
-    if (!isValidArray(paths)) return;
-    progressRef.current?.show(true);
-    try {
-      const files = await parsePaths(paths!, VALID_MEDIA_EXTS);
-      if (!isValidArray(files)) {
-        progressRef.current?.done();
-        message.info({
-          title: t('common.no_image_to_compress'),
-        });
-        return;
-      }
-      useCompressionStore.getState().setWorking(true);
-      useCompressionStore.getState().setFiles(files);
-      navigate('/compression/classic/workspace');
-      setTimeout(() => {
-        progressRef.current?.done();
-      }, 100);
-    } catch (error) {
-      messageApi?.error(String(error));
-      progressRef.current?.done();
-    }
-  };
 
   const handleSelectFile = async () => {
     const files = await open({
@@ -81,21 +50,6 @@ function ClassicCompressionGuide() {
   };
 
   useEffect(() => {
-    const setupDragDrop = async () => {
-      dragDropController.current = await getCurrentWebview().onDragDropEvent(async (event) => {
-        if (!dropzoneRef.current) return;
-
-        if (event.payload.type === 'enter') {
-          dropzoneRef.current.classList.add('drag-active');
-        } else if (event.payload.type === 'leave') {
-          dropzoneRef.current.classList.remove('drag-active');
-        } else if (event.payload.type === 'drop') {
-          dropzoneRef.current.classList.remove('drag-active');
-          handleFiles(event.payload.paths);
-        }
-      });
-    };
-
     const handlePaste = async (event: ClipboardEvent) => {
       let messageKey = 'parse-clipboard-images';
       try {
@@ -141,14 +95,9 @@ function ClassicCompressionGuide() {
       document.addEventListener('paste', handlePaste);
     };
 
-    setupDragDrop();
     setupPasteListener();
 
     return () => {
-      if (isFunction(dragDropController.current)) {
-        dragDropController.current();
-      }
-      dragDropController.current = null;
       document.removeEventListener('paste', handlePaste);
     };
   }, []);
@@ -158,10 +107,7 @@ function ClassicCompressionGuide() {
   }, []);
 
   return (
-    <div
-      ref={dropzoneRef}
-      className='group relative flex h-full flex-col items-center justify-center p-6 transition-all duration-300 [&.drag-active]:from-indigo-50/50 [&.drag-active]:to-indigo-100/50'
-    >
+    <div className='relative flex h-full flex-col items-center justify-center p-6'>
       <UploadWidget />
       <div className='relative mt-4 text-center'>
         <p className='mx-auto max-w-2xl text-lg'>
@@ -212,7 +158,6 @@ function ClassicCompressionGuide() {
       <div className='absolute bottom-2 right-2'>
         <FormatsTips />
       </div>
-      <div className='pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-neutral-100/80 opacity-0 backdrop-blur-[2px] transition-opacity duration-200 dark:bg-neutral-800/80 [.drag-active_&]:opacity-100'></div>
     </div>
   );
 }

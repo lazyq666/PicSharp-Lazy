@@ -1,0 +1,112 @@
+TAP version 13
+# Subtest: classic drop: png then png appends through the guide-to-workspace transition
+ok 1 - classic drop: png then png appends through the guide-to-workspace transition
+  ---
+  duration_ms: 59.981666
+  type: 'test'
+  ...
+# Subtest: classic drop: png then mp4 appends through the guide-to-workspace transition
+ok 2 - classic drop: png then mp4 appends through the guide-to-workspace transition
+  ---
+  duration_ms: 39.436209
+  type: 'test'
+  ...
+# Subtest: classic drop: mp4 then png appends through the guide-to-workspace transition
+ok 3 - classic drop: mp4 then png appends through the guide-to-workspace transition
+  ---
+  duration_ms: 37.13925
+  type: 'test'
+  ...
+# Subtest: classic drop: duplicates preserve an active video object, progress, and selection
+ok 4 - classic drop: duplicates preserve an active video object, progress, and selection
+  ---
+  duration_ms: 37.785458
+  type: 'test'
+  ...
+# Subtest: classic drop: completed results survive later imports and the new file remains pending
+ok 5 - classic drop: completed results survive later imports and the new file remains pending
+  ---
+  duration_ms: 34.798084
+  type: 'test'
+  ...
+# Subtest: classic drop: rapid imports keep drop order while the first parse is delayed
+ok 6 - classic drop: rapid imports keep drop order while the first parse is delayed
+  ---
+  duration_ms: 38.015
+  type: 'test'
+  ...
+# Subtest: classic drop: a failed or unsupported import leaves the existing batch usable
+ok 7 - classic drop: a failed or unsupported import leaves the existing batch usable
+  ---
+  duration_ms: 36.521042
+  type: 'test'
+  ...
+# Subtest: classic drop: switching modes removes its listener and remounting creates only one
+ok 8 - classic drop: switching modes removes its listener and remounting creates only one
+  ---
+  duration_ms: 36.689291
+  type: 'test'
+  ...
+# Subtest: classic drop: a native subscription that resolves after unmount is immediately removed
+ok 9 - classic drop: a native subscription that resolves after unmount is immediately removed
+  ---
+  duration_ms: 35.203125
+  type: 'test'
+  ...
+# Subtest: classic drop: a parse finishing after switching modes cannot repopulate the batch
+ok 10 - classic drop: a parse finishing after switching modes cannot repopulate the batch
+  ---
+  duration_ms: 33.07225
+  type: 'test'
+  ...
+# Subtest: classic drop: resetting the batch invalidates imports already being parsed or queued
+ok 11 - classic drop: resetting the batch invalidates imports already being parsed or queued
+  ---
+  duration_ms: 36.47475
+  type: 'test'
+  ...
+# Subtest: classic append: the store preserves existing file identity and deduplicates repeated paths
+ok 12 - classic append: the store preserves existing file identity and deduplicates repeated paths
+  ---
+  duration_ms: 32.704458
+  type: 'test'
+  ...
+# Subtest: classic video: a delayed parse cannot register a native job after leaving the batch
+ok 13 - classic video: a delayed parse cannot register a native job after leaving the batch
+  ---
+  duration_ms: 33.026208
+  type: 'test'
+  ...
+# Subtest: classic video: a delayed parse cannot register a native job after resetting the batch
+ok 14 - classic video: a delayed parse cannot register a native job after resetting the batch
+  ---
+  duration_ms: 35.447292
+  type: 'test'
+  ...
+# Subtest: classic import: a captured dialog callback cannot import after leaving the batch
+ok 15 - classic import: a captured dialog callback cannot import after leaving the batch
+  ---
+  duration_ms: 33.600042
+  type: 'test'
+  ...
+# Subtest: classic import: a captured dialog callback cannot import into a reset batch
+ok 16 - classic import: a captured dialog callback cannot import into a reset batch
+  ---
+  duration_ms: 37.558125
+  type: 'test'
+  ...
+# Subtest: classic video: directory expansion excludes existing videos before registering new jobs
+ok 17 - classic video: directory expansion excludes existing videos before registering new jobs
+  ---
+  duration_ms: 34.153583
+  type: 'test'
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 715.011875

@@ -1,0 +1,11 @@
+--- full/utils/fs.ts
++++ remove-video-exclusion/utils/fs.ts
+@@ -50,7 +50,7 @@
+   });
+   if (!isCurrent()) return [];
+   // Filter after directory expansion, before registration can reset an existing video job.
+-  const candidates = parsed?.filter((item) => !excludedPaths?.has(item.path));
++  const candidates = parsed;
+   if (isValidArray(candidates)) {
+     const videos = candidates.filter((item) => VALID_VIDEO_EXTS.includes(item.ext));
+     if (videos.length) {

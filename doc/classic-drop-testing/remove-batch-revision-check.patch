@@ -1,0 +1,12 @@
+--- full/pages/compression/classic-layout.tsx
++++ remove-batch-revision-check/pages/compression/classic-layout.tsx
+@@ -41,8 +41,7 @@
+       const revision = batchRevision;
+       const isCurrent = () =>
+         active.current &&
+-        session === lifetime.current &&
+-        revision === useCompressionStore.getState().batchRevision;
++        session === lifetime.current;
+ 
+       // Serialize native parsing too: a repeated video must not be registered twice.
+       const importing = queue.current.then(async () => {

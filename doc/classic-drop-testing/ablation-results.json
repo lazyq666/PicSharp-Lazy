@@ -1,0 +1,140 @@
+{
+  "baseline": "e0ff7a8",
+  "node": "v22.22.1",
+  "head": "e0ff7a8ffbeff11a60d50594134950ec7b3f6749",
+  "variants": [
+    {
+      "variant": "baseline",
+      "exitCode": 1,
+      "tests": 3,
+      "passed": 0,
+      "failed": 3,
+      "expectedPass": false
+    },
+    {
+      "variant": "replace-instead-of-append",
+      "exitCode": 1,
+      "tests": 3,
+      "passed": 0,
+      "failed": 3,
+      "expectedPass": false,
+      "mutation": {
+        "file": "pages/compression/classic-layout.tsx",
+        "beforeSha256": "64dcc5c8b1e7b610a17e220b5fcdc2964fdb06945804124100881e99a03e69e4",
+        "afterSha256": "e2e90ca7270b1e234b9e7e176f88f935b01f4bfc552d34c5d043925211650129"
+      }
+    },
+    {
+      "variant": "remove-store-deduplication",
+      "exitCode": 1,
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "expectedPass": false,
+      "mutation": {
+        "file": "store/compression.ts",
+        "beforeSha256": "23e7f40392b7ed6a80d045757560e17e6e0b3b4944278f1c1a740414457cce94",
+        "afterSha256": "5c9f48a2773a930869d1363bc1896159833bde4955f946b2d25d66c49bfd758f"
+      }
+    },
+    {
+      "variant": "remove-video-exclusion",
+      "exitCode": 1,
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "expectedPass": false,
+      "mutation": {
+        "file": "utils/fs.ts",
+        "beforeSha256": "44223532cf53b5e2691175bd440b82d026188d11aeccb2a394cfc24cccdec439",
+        "afterSha256": "d5349abfd2e3e8c3bf851df83f8c22999f1e2da752d5bb4907395e07982bee4c"
+      }
+    },
+    {
+      "variant": "remove-stale-video-registration-guard",
+      "exitCode": 1,
+      "tests": 2,
+      "passed": 0,
+      "failed": 2,
+      "expectedPass": false,
+      "mutation": {
+        "file": "utils/fs.ts",
+        "beforeSha256": "44223532cf53b5e2691175bd440b82d026188d11aeccb2a394cfc24cccdec439",
+        "afterSha256": "0a335a5f44dd8573f14a25288818207e772d58aa7ab5f41a86bce1eb09430bb3"
+      }
+    },
+    {
+      "variant": "remove-import-serialization",
+      "exitCode": 1,
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "expectedPass": false,
+      "mutation": {
+        "file": "pages/compression/classic-layout.tsx",
+        "beforeSha256": "64dcc5c8b1e7b610a17e220b5fcdc2964fdb06945804124100881e99a03e69e4",
+        "afterSha256": "95757aefe40d38f06dfbeaa48884a59e8ae9499ed74d0182b6c0088861db43f5"
+      }
+    },
+    {
+      "variant": "remove-batch-revision-check",
+      "exitCode": 1,
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "expectedPass": false,
+      "mutation": {
+        "file": "pages/compression/classic-layout.tsx",
+        "beforeSha256": "64dcc5c8b1e7b610a17e220b5fcdc2964fdb06945804124100881e99a03e69e4",
+        "afterSha256": "b280a18cf15558d75333522e04eccbeac2a85b1778cacbb469af60729b43968f"
+      }
+    },
+    {
+      "variant": "remove-late-subscription-cleanup",
+      "exitCode": 1,
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "expectedPass": false,
+      "mutation": {
+        "file": "pages/compression/classic-layout.tsx",
+        "beforeSha256": "64dcc5c8b1e7b610a17e220b5fcdc2964fdb06945804124100881e99a03e69e4",
+        "afterSha256": "bf066ff156c7277c8a2a863038471f419a4138d1b0c0789d526d7df74244896c"
+      }
+    },
+    {
+      "variant": "remove-inactive-import-guard",
+      "exitCode": 1,
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "expectedPass": false,
+      "mutation": {
+        "file": "pages/compression/classic-layout.tsx",
+        "beforeSha256": "64dcc5c8b1e7b610a17e220b5fcdc2964fdb06945804124100881e99a03e69e4",
+        "afterSha256": "b26753c29215ae677e6b4f60a4b8f1bf9e01ec431d8e7d270c45565ffc66092f"
+      }
+    },
+    {
+      "variant": "remove-captured-batch-identity",
+      "exitCode": 1,
+      "tests": 1,
+      "passed": 0,
+      "failed": 1,
+      "expectedPass": false,
+      "mutation": {
+        "file": "pages/compression/classic-layout.tsx",
+        "beforeSha256": "64dcc5c8b1e7b610a17e220b5fcdc2964fdb06945804124100881e99a03e69e4",
+        "afterSha256": "c19de82fed57eccfa09983bf8973c70b05d394b415d56481c7a818c0c7cc5c95"
+      }
+    },
+    {
+      "variant": "full-fix",
+      "exitCode": 0,
+      "tests": 17,
+      "passed": 17,
+      "failed": 0,
+      "expectedPass": true
+    }
+  ]
+}

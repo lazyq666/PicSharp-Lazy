@@ -1,0 +1,12 @@
+--- full/pages/compression/classic-layout.tsx
++++ remove-late-subscription-cleanup/pages/compression/classic-layout.tsx
+@@ -94,8 +94,7 @@
+         }
+       })
+       .then((stop) => {
+-        if (disposed) stop();
+-        else unlisten = stop;
++        unlisten = stop;
+       })
+       .catch((error) => {
+         if (!disposed) current.current.messageApi?.error(String(error));

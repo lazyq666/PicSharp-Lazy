@@ -15,6 +15,9 @@
     "build": "tsc && vite build",
     "build:macos-app": "pnpm tauri build --bundles app",
     "preview": "vite preview",
+    "test": "cd ../.. && node --import ./packages/picsharp-sidecar/node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 apps/picsharp-app/tests/*.test.*",
+    "test:classic-drop": "node --test tests/classic-drop.test.mjs",
+    "test:classic-drop:ablation": "node tests/classic-drop-ablation.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -98,7 +101,9 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "esbuild": "0.25.3",
     "postcss": "^8.4.49",
+    "react-test-renderer": "18.3.1",
     "tailwindcss": "^3.4.16",
     "typescript": "^5",
     "vite": "^6.0.3"

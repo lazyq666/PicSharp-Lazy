@@ -1,0 +1,668 @@
+     Running beforeBuildCommand `true`
+warning: /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/src-tauri/Cargo.toml: unused manifest key: bin.0.default
+warning: /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/src-tauri/Cargo.toml: unused manifest key: build
+help: build is a valid .cargo/config.toml key
+   Compiling PicSharp v1.0.1 (/Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/apps/picsharp-app/src-tauri)
+warning: unused import: `dotenvy_macro::dotenv`
+ --> apps/picsharp-app/src-tauri/src/lib.rs:1:5
+  |
+1 | use dotenvy_macro::dotenv;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `tauri_plugin_aptabase::EventTracker`
+  --> apps/picsharp-app/src-tauri/src/lib.rs:12:5
+   |
+12 | use tauri_plugin_aptabase::EventTracker;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Write`
+ --> apps/picsharp-app/src-tauri/src/clipboard.rs:6:23
+  |
+6 | use std::io::{Cursor, Write};
+  |                       ^^^^^
+
+warning: unused imports: `Ordering` and `Path`
+ --> apps/picsharp-app/src-tauri/src/inspect.rs:4:12
+  |
+4 |     path::{Path, PathBuf},
+  |            ^^^^
+5 |     sync::{
+6 |         atomic::{AtomicUsize, Ordering},
+  |                               ^^^^^^^^
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+  --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:61:34
+   |
+61 |         let close_rect: NSRect = msg_send![close, frame];
+   |                                  ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+  --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:71:21
+   |
+71 |         let _: () = msg_send![title_bar_container_view, setFrame: title_bar_rect];
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: no expected values for `feature`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:129:17
+    |
+129 |                 msg_send![super_del, windowShouldClose: sender]
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:135:29
+    |
+135 |                 let _: () = msg_send![super_del, windowWillClose: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:159:29
+    |
+159 |                 let _: () = msg_send![super_del, windowDidResize: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:165:29
+    |
+165 |                 let _: () = msg_send![super_del, windowDidMove: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:175:29
+    |
+175 |                 let _: () = msg_send![super_del, windowDidChangeBackingProperties: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:181:29
+    |
+181 |                 let _: () = msg_send![super_del, windowDidBecomeKey: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:187:29
+    |
+187 |                 let _: () = msg_send![super_del, windowDidResignKey: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:193:17
+    |
+193 |                 msg_send![super_del, draggingEntered: notification]
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:203:17
+    |
+203 |                 msg_send![super_del, prepareForDragOperation: notification]
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:209:17
+    |
+209 |                 msg_send![super_del, performDragOperation: sender]
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:215:29
+    |
+215 |                 let _: () = msg_send![super_del, concludeDragOperation: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:221:29
+    |
+221 |                 let _: () = msg_send![super_del, draggingExited: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:232:17
+    |
+232 |                 msg_send![super_del, window: window willUseFullScreenPresentationOptions: proposed_options]
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:249:29
+    |
+249 |                 let _: () = msg_send![super_del, windowDidEnterFullScreen: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:266:29
+    |
+266 |                 let _: () = msg_send![super_del, windowWillEnterFullScreen: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:294:29
+    |
+294 |                 let _: () = msg_send![super_del, windowDidExitFullScreen: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:311:29
+    |
+311 |                 let _: () = msg_send![super_del, windowWillExitFullScreen: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:321:29
+    |
+321 |                 let _: () = msg_send![super_del, windowDidFailToEnterFullScreen: window];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:331:29
+    |
+331 |                 let _: () = msg_send![super_del, effectiveAppearanceDidChange: notification];
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:341:29
+    |
+341 |                   let _: () = msg_send![
+    |  _____________________________^
+342 | |                     super_del,
+343 | |                     effectiveAppearanceDidChangedOnMainThread: notification
+344 | |                 ];
+    | |_________________^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `msg_send` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:363:29
+    |
+363 |   ...   ns_win.setDelegate_(delegate!(&delegate_name, {
+    |  ___________________________^
+364 | | ...       window: id = ns_win,
+365 | | ...       app_box: *mut c_void = app_box,
+366 | | ...       toolbar: id = cocoa::base::nil,
+...   |
+387 | | ...       (effectiveAppearanceDidChangedOnMainThread:) => on_effective_appearance_did_changed_on_main_thread as extern fn(&Object...
+388 | | ...   }))
+    | |________^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `class` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `class` which comes from the expansion of the macro `delegate` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `cargo-clippy`
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:363:29
+    |
+363 |   ...   ns_win.setDelegate_(delegate!(&delegate_name, {
+    |  ___________________________^
+364 | | ...       window: id = ns_win,
+365 | | ...       app_box: *mut c_void = app_box,
+366 | | ...       toolbar: id = cocoa::base::nil,
+...   |
+387 | | ...       (effectiveAppearanceDidChangedOnMainThread:) => on_effective_appearance_did_changed_on_main_thread as extern fn(&Object...
+388 | | ...   }))
+    | |________^
+    |
+    = note: no expected values for `feature`
+    = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `sel_impl` crate for guidance on how handle this unexpected cfg
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the macro `sel_impl` which comes from the expansion of the macro `delegate` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:368:63
+    |
+368 |             (windowShouldClose:) => on_window_should_close as extern fn(&Object, Sel, id) -> BOOL,
+    |                                                               ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+    |
+    = note: `#[warn(missing_abi)]` on by default
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:369:59
+    |
+369 |             (windowWillClose:) => on_window_will_close as extern fn(&Object, Sel, id),
+    |                                                           ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:370:64
+    |
+370 |             (windowDidResize:) => on_window_did_resize::<R> as extern fn(&Object, Sel, id),
+    |                                                                ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:371:55
+    |
+371 |             (windowDidMove:) => on_window_did_move as extern fn(&Object, Sel, id),
+    |                                                       ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:372:95
+    |
+372 |             (windowDidChangeBackingProperties:) => on_window_did_change_backing_properties as extern fn(&Object, Sel, id),
+    |                                                                                               ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:373:66
+    |
+373 |             (windowDidBecomeKey:) => on_window_did_become_key as extern fn(&Object, Sel, id),
+    |                                                                  ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:374:66
+    |
+374 |             (windowDidResignKey:) => on_window_did_resign_key as extern fn(&Object, Sel, id),
+    |                                                                  ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:375:58
+    |
+375 |             (draggingEntered:) => on_dragging_entered as extern fn(&Object, Sel, id) -> BOOL,
+    |                                                          ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:376:76
+    |
+376 |             (prepareForDragOperation:) => on_prepare_for_drag_operation as extern fn(&Object, Sel, id) -> BOOL,
+    |                                                                            ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:377:69
+    |
+377 |             (performDragOperation:) => on_perform_drag_operation as extern fn(&Object, Sel, id) -> BOOL,
+    |                                                                     ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:378:71
+    |
+378 |             (concludeDragOperation:) => on_conclude_drag_operation as extern fn(&Object, Sel, id),
+    |                                                                       ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:379:56
+    |
+379 |             (draggingExited:) => on_dragging_exited as extern fn(&Object, Sel, id),
+    |                                                        ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:380:118
+    |
+380 | ...ull_screen_presentation_options as extern fn(&Object, Sel, id, NSUInteger) -> NSUInteger,
+    |                                       ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:381:84
+    |
+381 |             (windowDidEnterFullScreen:) => on_window_did_enter_full_screen::<R> as extern fn(&Object, Sel, id),
+    |                                                                                    ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:382:86
+    |
+382 |             (windowWillEnterFullScreen:) => on_window_will_enter_full_screen::<R> as extern fn(&Object, Sel, id),
+    |                                                                                      ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:383:82
+    |
+383 |             (windowDidExitFullScreen:) => on_window_did_exit_full_screen::<R> as extern fn(&Object, Sel, id),
+    |                                                                                  ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:384:84
+    |
+384 |             (windowWillExitFullScreen:) => on_window_will_exit_full_screen::<R> as extern fn(&Object, Sel, id),
+    |                                                                                    ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:385:93
+    |
+385 |             (windowDidFailToEnterFullScreen:) => on_window_did_fail_to_enter_full_screen as extern fn(&Object, Sel, id),
+    |                                                                                             ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:386:86
+    |
+386 |             (effectiveAppearanceDidChange:) => on_effective_appearance_did_change as extern fn(&Object, Sel, id),
+    |                                                                                      ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: `extern` declarations without an explicit ABI are deprecated
+   --> apps/picsharp-app/src-tauri/src/macos/traffic_light.rs:387:115
+    |
+387 | ...ance_did_changed_on_main_thread as extern fn(&Object, Sel, id)
+    |                                       ^^^^^^ help: explicitly specify the "C" ABI: `extern "C"`
+
+warning: variable does not need to be mutable
+   --> apps/picsharp-app/src-tauri/src/clipboard.rs:227:9
+    |
+227 |     let mut candidate_format = candidate_format.unwrap_or_else(|| "png".to_string());
+    |         ----^^^^^^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `app`
+   --> apps/picsharp-app/src-tauri/src/clipboard.rs:278:5
+    |
+278 |     app: AppHandle<R>,
+    |     ^^^ help: if this is intentional, prefix it with an underscore: `_app`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `total`
+   --> apps/picsharp-app/src-tauri/src/upload.rs:119:9
+    |
+119 |     let total = response.content_length().unwrap_or(0);
+    |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_total`
+
+warning: function `detect_image_format` is never used
+  --> apps/picsharp-app/src-tauri/src/clipboard.rs:12:4
+   |
+12 | fn detect_image_format(image_data: &[u8]) -> Option<ImageFormat> {
+   |    ^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `format_to_extension` is never used
+  --> apps/picsharp-app/src-tauri/src/clipboard.rs:21:4
+   |
+21 | fn format_to_extension(format: ImageFormat) -> &'static str {
+   |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `convert_bgra_to_rgba` is never used
+  --> apps/picsharp-app/src-tauri/src/clipboard.rs:34:4
+   |
+34 | fn convert_bgra_to_rgba(bgra_data: &[u8]) -> Vec<u8> {
+   |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `save_image_data_to_temp` is never used
+  --> apps/picsharp-app/src-tauri/src/clipboard.rs:94:4
+   |
+94 | fn save_image_data_to_temp(image_data: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `download_image_from_url` is never used
+   --> apps/picsharp-app/src-tauri/src/clipboard.rs:115:10
+    |
+115 | async fn download_image_from_url(url: &Url) -> Result<String, Box<dyn std::error::Error>> {
+    |          ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `is_image_url` is never used
+   --> apps/picsharp-app/src-tauri/src/clipboard.rs:132:4
+    |
+132 | fn is_image_url(url: &Url) -> bool {
+    |    ^^^^^^^^^^^^
+
+warning: function `parse_file_paths` is never used
+   --> apps/picsharp-app/src-tauri/src/clipboard.rs:168:4
+    |
+168 | fn parse_file_paths(text: &str) -> Vec<String> {
+    |    ^^^^^^^^^^^^^^^^
+
+warning: function `canonicalize_path` is never used
+   --> apps/picsharp-app/src-tauri/src/clipboard.rs:177:4
+    |
+177 | fn canonicalize_path(path_str: &str) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `is_image_file` is never used
+   --> apps/picsharp-app/src-tauri/src/clipboard.rs:197:4
+    |
+197 | fn is_image_file(path: &Path) -> bool {
+    |    ^^^^^^^^^^^^^
+
+warning: function `convert_file_src` is never used
+  --> apps/picsharp-app/src-tauri/src/file.rs:14:8
+   |
+14 | pub fn convert_file_src(orig_path: &str) -> Result<String, io::Error> {
+   |        ^^^^^^^^^^^^^^^^
+
+warning: function `format_file_size` is never used
+   --> apps/picsharp-app/src-tauri/src/file.rs:174:8
+    |
+174 | pub fn format_file_size(bytes: u64) -> String {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: function `remember_output` is never used
+   --> apps/picsharp-app/src-tauri/src/video/retention.rs:269:8
+    |
+269 | pub fn remember_output(root: &Path, path: &Path) -> Result<OutputStamp, String> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `is_output` is never used
+   --> apps/picsharp-app/src-tauri/src/video/retention.rs:295:8
+    |
+295 | pub fn is_output(root: &Path, path: &Path) -> bool {
+    |        ^^^^^^^^^
+
+warning: static `ID` is never used
+  --> apps/picsharp-app/src-tauri/src/inspect.rs:14:8
+   |
+14 | static ID: AtomicUsize = AtomicUsize::new(0);
+   |        ^^
+
+warning: method `allow_file` is never used
+  --> apps/picsharp-app/src-tauri/src/inspect.rs:92:12
+   |
+22 | impl Inspect {
+   | ------------ method in this implementation
+...
+92 |     pub fn allow_file(&self, paths: &Vec<PathBuf>) {
+   |            ^^^^^^^^^^
+
+warning: type alias `Result` is never used
+  --> apps/picsharp-app/src-tauri/src/upload.rs:13:6
+   |
+13 | type Result<T> = std::result::Result<T, Error>;
+   |      ^^^^^^
+
+warning: struct `TransferStats` is never constructed
+  --> apps/picsharp-app/src-tauri/src/upload.rs:16:12
+   |
+16 | pub struct TransferStats {
+   |            ^^^^^^^^^^^^^
+
+warning: associated items `start` and `record_chunk_transfer` are never used
+  --> apps/picsharp-app/src-tauri/src/upload.rs:27:12
+   |
+25 | impl TransferStats {
+   | ------------------ associated items in this implementation
+26 |     // 使用指定的粒度初始化一个新的 TransferStats 实例。
+27 |     pub fn start(granularity: u32) -> Self {
+   |            ^^^^^
+...
+38 |     pub fn record_chunk_transfer(&mut self, chunk_len: usize) {
+   |            ^^^^^^^^^^^^^^^^^^^^^
+
+warning: enum `Error` is never used
+  --> apps/picsharp-app/src-tauri/src/upload.rs:66:10
+   |
+66 | pub enum Error {
+   |          ^^^^^
+
+warning: struct `ProgressPayload` is never constructed
+  --> apps/picsharp-app/src-tauri/src/upload.rs:88:12
+   |
+88 | pub struct ProgressPayload {
+   |            ^^^^^^^^^^^^^^^
+
+warning: function `download_file` is never used
+  --> apps/picsharp-app/src-tauri/src/upload.rs:94:14
+   |
+94 | pub async fn download_file(
+   |              ^^^^^^^^^^^^^
+
+warning: function `upload_file` is never used
+   --> apps/picsharp-app/src-tauri/src/upload.rs:134:14
+    |
+134 | pub async fn upload_file(
+    |              ^^^^^^^^^^^
+
+warning: function `file_to_body` is never used
+   --> apps/picsharp-app/src-tauri/src/upload.rs:169:4
+    |
+169 | fn file_to_body(file: File) -> reqwest::Body {
+    |    ^^^^^^^^^^^^
+
+warning: `PicSharp` (lib) generated 94 warnings (20 duplicates) (run `cargo fix --lib -p PicSharp` to apply 27 suggestions)
+warning: unused import: `std::fs`
+ --> apps/picsharp-app/src-tauri/bin/cli.rs:3:5
+  |
+3 | use std::fs;
+  |     ^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `PicSharp` (bin "picsharp-cli") generated 1 warning (run `cargo fix --bin "picsharp-cli" -p PicSharp` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 59.51s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6, proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+       Built application at: /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/target/release/PicSharp
+    Bundling PicSharp Drag Test.app (/Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/target/release/bundle/macos/PicSharp Drag Test.app)
+     Signing with identity "-"
+Signing with identity "-"
+Signing /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/target/release/bundle/macos/PicSharp Drag Test.app/Contents/MacOS/picsharp-sidecar
+/Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/target/release/bundle/macos/PicSharp Drag Test.app/Contents/MacOS/picsharp-sidecar: replacing existing signature
+Signing with identity "-"
+Signing /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/target/release/bundle/macos/PicSharp Drag Test.app/Contents/MacOS/picsharp-cli
+/Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/target/release/bundle/macos/PicSharp Drag Test.app/Contents/MacOS/picsharp-cli: replacing existing signature
+Signing with identity "-"
+Signing /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/target/release/bundle/macos/PicSharp Drag Test.app/Contents/MacOS/PicSharp
+/Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/target/release/bundle/macos/PicSharp Drag Test.app/Contents/MacOS/PicSharp: replacing existing signature
+Signing with identity "-"
+Signing /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/target/release/bundle/macos/PicSharp Drag Test.app
+/Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/target/release/bundle/macos/PicSharp Drag Test.app: replacing existing signature
+        Warn skipping app notarization, no APPLE_ID & APPLE_PASSWORD & APPLE_TEAM_ID or APPLE_API_KEY & APPLE_API_ISSUER & APPLE_API_KEY_PATH environment variables found
+    Finished 1 bundle at:
+        /Users/luoyiqun/Documents/Tools/PicSharp-Lazy/PicSharp-Lazy/target/release/bundle/macos/PicSharp Drag Test.app
+

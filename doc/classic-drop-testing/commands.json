@@ -1,0 +1,5 @@
+{
+  "all_node": "apps/picsharp-app/src-tauri/resources/sidecar/node --import ./packages/picsharp-sidecar/node_modules/tsx/dist/loader.mjs --test --test-concurrency=1 apps/picsharp-app/tests/*.test.* packages/picsharp-sidecar/tests/*.test.ts",
+  "live_followup": "apps/picsharp-app/src-tauri/resources/sidecar/node --import ./packages/picsharp-sidecar/node_modules/tsx/dist/loader.mjs /private/tmp/picsharp-batch-live-test.mjs",
+  "rust": "PATH=\"$PWD/apps/picsharp-app/src-tauri/resources/video:$PATH\" cargo test -p PicSharp --lib video::tests -- --include-ignored"
+}

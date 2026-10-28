@@ -38,11 +38,19 @@ export interface ParsePathsItem {
   mime_type: string;
 }
 
-export async function parsePaths(paths: string[], validExts: string[]) {
-  const candidates = await invoke<ParsePathsItem[]>('ipc_parse_paths', {
+export async function parsePaths(
+  paths: string[],
+  validExts: string[],
+  excludedPaths?: ReadonlySet<string>,
+  isCurrent: () => boolean = () => true,
+) {
+  const parsed = await invoke<ParsePathsItem[]>('ipc_parse_paths', {
     paths,
     validExts,
   });
+  if (!isCurrent()) return [];
+  // Filter after directory expansion, before registration can reset an existing video job.
+  const candidates = parsed?.filter((item) => !excludedPaths?.has(item.path));
   if (isValidArray(candidates)) {
     const videos = candidates.filter((item) => VALID_VIDEO_EXTS.includes(item.ext));
     if (videos.length) {
