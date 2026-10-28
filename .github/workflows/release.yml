@@ -1,331 +1,160 @@
-name: 'release'
+name: Release PicSharp-Lazy
 
 on:
   push:
-    branches:
-      - release
+    tags:
+      - 'v*'
+  # Manual runs build a draft only. Publishing a version tag releases automatically.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: picsharp-lazy-release
+  cancel-in-progress: false
 
 jobs:
-  get-release:
-    permissions:
-      contents: write
+  prepare:
+    if: github.repository == 'lazyq666/PicSharp-Lazy'
     runs-on: ubuntu-latest
     outputs:
-      release_note: ${{ steps.get-release-notes.outputs.release_note }}
-      release_version: ${{ steps.get-release-notes.outputs.release_version }}
-
+      version: ${{ steps.metadata.outputs.version }}
     steps:
       - uses: actions/checkout@v6
-      - name: setup node
-        uses: actions/setup-node@v6
-      - name: get version
-        run: echo "PACKAGE_VERSION=$(node -p "require('./apps/picsharp-app/package.json').version")" >> $GITHUB_ENV
-      - name: get release notes
-        id: get-release-notes
-        uses: actions/github-script@v8
+      - uses: actions/setup-node@v6
         with:
-          script: |
-            const fs = require('fs');
-            const version = require('./apps/picsharp-app/package.json').version;
-            console.log('Version:', version);
-            const releaseNotesFileContent = fs.readFileSync('./apps/picsharp-app/release-notes.json', 'utf8');
-            const releaseNotes = JSON.parse(releaseNotesFileContent).releases[version] || {};
-            const notes = releaseNotes.notes || [];
-            const releaseNote = notes.map((note, index) => `${index + 1}. ${note}`).join('\n');
-            console.log('Formatted release note:', releaseNote);
-            core.setOutput('release_version', version);
-            core.setOutput('release_note', releaseNote);
-  build-app:
-    needs: [get-release]
-    permissions:
-      contents: write
+          node-version: '22'
+      - name: Check version, update source, and signing setup
+        id: metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          test -n "$TAURI_SIGNING_PRIVATE_KEY" || { echo 'Missing fork updater signing secret'; exit 1; }
+          python3 scripts/release-metadata.py
+          version=$(node -p "require('./apps/picsharp-app/package.json').version")
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo 'Version tag must match apps/picsharp-app/package.json'; exit 1
+          fi
+          if gh release view "v$version" --json isDraft --jq '.isDraft == false' | grep -q true; then
+            echo 'This version is already published; increment the version before releasing'; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Test release gates with temporary signing keys
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y minisign
+          npm ci --prefix apps/picsharp-app --ignore-scripts --no-audit --no-fund
+          python3 scripts/test-release.py
+
+  build:
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
-            config: { args: '--target aarch64-apple-darwin', arch: 'aarch64-apple-darwin' }
-          - platform: 'macos-latest'
-            config: { args: '--target x86_64-apple-darwin', arch: 'x86_64-apple-darwin' }
-          - platform: 'ubuntu-22.04'
-            config: { args: '--target x86_64-unknown-linux-gnu', arch: 'x86_64-unknown-linux-gnu' }
-          - platform: 'ubuntu-22.04-arm'
-            config:
-              { args: '--target aarch64-unknown-linux-gnu', arch: 'aarch64-unknown-linux-gnu' }
-          - platform: 'windows-latest'
-            config: { args: '--target x86_64-pc-windows-msvc', arch: 'x86_64-pc-windows-msvc' }
-          - platform: 'windows-11-arm'
-            config:
-              {
-                args: '--target aarch64-pc-windows-msvc --bundles nsis',
-                arch: 'aarch64-pc-windows-msvc',
-              }
-    runs-on: ${{ matrix.platform }}
+          - runner: macos-26
+            target: aarch64-apple-darwin
+            arch: arm64
+          - runner: macos-26-intel
+            target: x86_64-apple-darwin
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '26.0'
+      HOMEBREW_NO_AUTO_UPDATE: '1'
     steps:
       - uses: actions/checkout@v6
-
-      - name: Setup Pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
-          version: 9.5.0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+          version: 9.15.9
+      - uses: actions/setup-node@v6
         with:
-          node-version: 24
-
-      - name: Install Rust Stable
-        uses: dtolnay/rust-toolchain@stable
+          node-version: '22'
+          architecture: ${{ matrix.arch }}
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.config.arch }}
-
+          targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: 'apps/picsharp-app/src-tauri -> target'
-
-      - name: Install App Framework (ubuntu only)
-        if: contains(matrix.platform, 'ubuntu')
+          workspaces: '. -> target'
+          key: ${{ matrix.target }}
+      - name: Install locked JavaScript dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libfontconfig-dev libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
-
-      - name: Install Sidecar Dependencies
-        shell: bash
-        run: |
-          if [[ "${{ matrix.config.arch }}" == *"aarch64"* ]]; then
-            npm install --cpu arm64
-          elif [[ "${{ matrix.config.arch }}" == *"x86_64"* ]]; then
-            npm install --cpu x64
-          else
-            npm install
-          fi
-        working-directory: packages/picsharp-sidecar
-
-      - name: Find Signing Sidecar Binary
-        # if: matrix.platform == 'macos-latest' || matrix.platform == 'windows-latest'
-        if: matrix.platform == 'macos-latest'
-        id: find-sidecar-binary
-        run: |
-          if [[ "${{ matrix.platform }}" == "macos-latest" ]]; then
-            echo "macOS: Finding the .node file under node_modules/@img and node_modules/@napi-rs"
-            sharp_node_file_path=$(find node_modules/@img -type f -name "*.node" -print -quit 2>/dev/null || true) # -quit makes find exit after the first match. 2>/dev/null suppresses errors if no file is found. `|| true` ensures the command doesn't fail the step if no file is found.
-            rs_image_node_file_path=$(find node_modules/@napi-rs -type f -name "*.node" -print -quit 2>/dev/null || true) # -quit makes find exit after the first match. 2>/dev/null suppresses errors if no file is found. `|| true` ensures the command doesn't fail the step if no file is found.
-
-            if [[ -n "$sharp_node_file_path" ]]; then
-              echo "Found sharp .node file: $sharp_node_file_path"
-              echo "sharp_node_file=packages/picsharp-sidecar/$sharp_node_file_path" >> $GITHUB_OUTPUT
-            else
-              echo "No sharp .node files found."
-              echo "sharp_node_file=" >> $GITHUB_OUTPUT
-            fi
-
-            if [[ -n "$rs_image_node_file_path" ]]; then
-              echo "Found rs-image .node file: $rs_image_node_file_path"
-              echo "rs_image_node_file=packages/picsharp-sidecar/$rs_image_node_file_path" >> $GITHUB_OUTPUT
-            else
-              echo "No rs-image .node files found."
-              echo "rs_image_node_file=" >> $GITHUB_OUTPUT
-            fi
-
-            echo "macOS: Finding the .dylib file under node_modules/@img"
-            sharp_dylib_file_path=$(find node_modules/@img -type f -name "*.dylib" -print -quit 2>/dev/null || true) # -quit makes find exit after the first match. 2>/dev/null suppresses errors if no file is found. `|| true` ensures the command doesn't fail the step if no file is found.
-
-            if [[ -n "$sharp_dylib_file_path" ]]; then
-              echo "Found sharp .dylib file: $sharp_dylib_file_path"
-              echo "sharp_dylib_file=packages/picsharp-sidecar/$sharp_dylib_file_path" >> $GITHUB_OUTPUT
-            else
-              echo "No sharp .dylib files found."
-              echo "sharp_dylib_file=" >> $GITHUB_OUTPUT
-            fi
-          elif [[ "${{ matrix.platform }}" == "windows-latest" ]]; then
-            echo "Windows: Finding the .node file under node_modules/@img and node_modules/@napi-rs"
-            sharp_node_file_path=$(find node_modules/@img -type f -name "*.node" -print -quit 2>/dev/null || true) # -quit makes find exit after the first match. 2>/dev/null suppresses errors if no file is found. `|| true` ensures the command doesn't fail the step if no file is found.
-            rs_image_node_file_path=$(find node_modules/@napi-rs -type f -name "*.node" -print -quit 2>/dev/null || true) # -quit makes find exit after the first match. 2>/dev/null suppresses errors if no file is found. `|| true` ensures the command doesn't fail the step if no file is found.
-
-            if [[ -n "$sharp_node_file_path" ]]; then
-              echo "Found sharp .node file: $sharp_node_file_path"
-              echo "sharp_node_file=packages/picsharp-sidecar/$sharp_node_file_path" >> $GITHUB_OUTPUT
-            else
-              echo "No sharp .node files found."
-              echo "sharp_node_file=" >> $GITHUB_OUTPUT
-            fi
-
-            if [[ -n "$rs_image_node_file_path" ]]; then
-              echo "Found rs-image .node file: $rs_image_node_file_path"
-              echo "rs_image_node_file=packages/picsharp-sidecar/$rs_image_node_file_path" >> $GITHUB_OUTPUT
-            else
-              echo "No rs-image .node files found."
-              echo "rs_image_node_file=" >> $GITHUB_OUTPUT
-            fi
-
-            echo "Windows: Finding the sharp .dll file under node_modules/@img"
-            sharp_dll_file_path=$(find node_modules/@img -type f -name "*.dll" -print -quit 2>/dev/null || true) # -quit makes find exit after the first match. 2>/dev/null suppresses errors if no file is found. `|| true` ensures the command doesn't fail the step if no file is found.
-
-            if [[ -n "$sharp_dll_file_path" ]]; then
-              echo "Found sharp .dll file: $sharp_dll_file_path"
-              echo "sharp_dll_file=packages/picsharp-sidecar/$sharp_dll_file_path" >> $GITHUB_OUTPUT
-            else
-              echo "No sharp .dll files found."
-              echo "sharp_dll_file=" >> $GITHUB_OUTPUT
-            fi
-          fi
-        working-directory: packages/picsharp-sidecar
-
-      - name: Code Signing Sidecar Sharp .node Binary (MacOS Only)
-        if: matrix.platform == 'macos-latest'
-        uses: lando/code-sign-action@v3
-        with:
-          file: ${{ steps.find-sidecar-binary.outputs.sharp_node_file }}
-          certificate-data: ${{ secrets.APPLE_CERTIFICATE }}
-          certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          certificate-id: ${{ secrets.APPLE_TEAM_ID }}
-
-      - name: Clean up macos-build.keychain
-        if: matrix.platform == 'macos-latest'
-        run: |
-          echo "🔍 Checking for existing macos-build.keychain..."
-          if security list-keychains -d user | grep -q "macos-build.keychain"; then
-            echo "✅ Removing macos-build.keychain from keychain list..."
-            security list-keychains -s $(security list-keychains -d user | grep -v "macos-build.keychain")
-          else
-            echo "❌ macos-build.keychain not found in keychain list."
-          fi
-
-          echo "🗑️ Deleting macos-build.keychain files..."
-          rm -f ~/Library/Keychains/macos-build.keychain ~/Library/Keychains/macos-build.keychain-db
-
-          echo "✅ Cleanup complete."
-
-      - name: Code Signing Sidecar rs-image .node Binary (MacOS Only)
-        if: matrix.platform == 'macos-latest'
-        uses: lando/code-sign-action@v3
-        with:
-          file: ${{ steps.find-sidecar-binary.outputs.rs_image_node_file }}
-          certificate-data: ${{ secrets.APPLE_CERTIFICATE }}
-          certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          certificate-id: ${{ secrets.APPLE_TEAM_ID }}
-
-      - name: Clean up macos-build.keychain
-        if: matrix.platform == 'macos-latest'
-        run: |
-          echo "🔍 Checking for existing macos-build.keychain..."
-          if security list-keychains -d user | grep -q "macos-build.keychain"; then
-            echo "✅ Removing macos-build.keychain from keychain list..."
-            security list-keychains -s $(security list-keychains -d user | grep -v "macos-build.keychain")
-          else
-            echo "❌ macos-build.keychain not found in keychain list."
-          fi
-
-          echo "🗑️ Deleting macos-build.keychain files..."
-          rm -f ~/Library/Keychains/macos-build.keychain ~/Library/Keychains/macos-build.keychain-db
-
-          echo "✅ Cleanup complete."
-
-      - name: Code Signing Sidecar Sharp .dylib Binary (MacOS Only)
-        if: matrix.platform == 'macos-latest'
-        uses: lando/code-sign-action@v3
-        with:
-          file: ${{ steps.find-sidecar-binary.outputs.sharp_dylib_file }}
-          certificate-data: ${{ secrets.APPLE_CERTIFICATE }}
-          certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          certificate-id: ${{ secrets.APPLE_TEAM_ID }}
-
-      - name: Clean up macos-build.keychain
-        if: matrix.platform == 'macos-latest'
-        run: |
-          echo "🔍 Checking for existing macos-build.keychain..."
-          if security list-keychains -d user | grep -q "macos-build.keychain"; then
-            echo "✅ Removing macos-build.keychain from keychain list..."
-            security list-keychains -s $(security list-keychains -d user | grep -v "macos-build.keychain")
-          else
-            echo "❌ macos-build.keychain not found in keychain list."
-          fi
-
-          echo "🗑️ Deleting macos-build.keychain files..."
-          rm -f ~/Library/Keychains/macos-build.keychain ~/Library/Keychains/macos-build.keychain-db
-
-          echo "✅ Cleanup complete."
-
-      - name: Build sidecar
-        shell: bash
-        run: |
-          if [[ "${{ matrix.config.arch }}" == "aarch64-apple-darwin" ]]; then
-            npm run build-sea:macos-arm64
-          elif [[ "${{ matrix.config.arch }}" == "x86_64-apple-darwin" ]]; then
-            npm run build-sea:macos-x64
-          elif [[ "${{ matrix.config.arch }}" == "x86_64-pc-windows-msvc" ]]; then
-            npm run build-sea:win-x64
-          elif [[ "${{ matrix.config.arch }}" == "aarch64-pc-windows-msvc" ]]; then
-            npm run build-sea:win-arm64
-          elif [[ "${{ matrix.config.arch }}" == "x86_64-unknown-linux-gnu" ]]; then
-            npm run build-sea:linux-x64
-          elif [[ "${{ matrix.config.arch }}" == "aarch64-unknown-linux-gnu" ]]; then
-            npm run build-sea:linux-arm64
-          fi
-        working-directory: packages/picsharp-sidecar
-
-      - name: Move sidecar binary
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-
-            const platform = process.env.MATRIX_PLATFORM;
-            const arch = process.env.MATRIX_CONFIG_ARCH;
-
-            core.info(`Platform: ${platform}, Architecture: ${arch}`);
-
-            let ext = platform.includes("windows") ? ".exe" : "";
-
-            const sourceDir = 'packages/picsharp-sidecar/bin';
-            const destDir = 'apps/picsharp-app/src-tauri/binaries';
-
-            const sourceFile = path.join(sourceDir, `picsharp-sidecar-${arch}${ext}`);
-            const destFile = path.join(destDir, `picsharp-sidecar-${arch}${ext}`);
-
-            core.info(`Source file: ${sourceFile}`);
-            core.info(`Destination file: ${destFile}`);
-
-            try {
-              fs.mkdirSync(destDir, { recursive: true });
-              fs.copyFileSync(sourceFile, destFile);
-            } catch (error) {
-              core.setFailed(`Failed to move sidecar binary: ${error.message}`);
-            }
+          npm ci --prefix packages/picsharp-sidecar --no-audit --no-fund
+          npm ci --prefix apps/picsharp-app --no-audit --no-fund
+      - name: Prepare bundled video and image engines
         env:
-          MATRIX_PLATFORM: ${{ matrix.platform }}
-          MATRIX_CONFIG_ARCH: ${{ matrix.config.arch }}
-
-      - name: Install frontend dependencies for main app
-        run: npm install
+          RELEASE_TARGET: ${{ matrix.target }}
+        run: |
+          brew install ffmpeg
+          python3 scripts/prepare-video-engine.py --source "$(brew --prefix ffmpeg)/bin" --target "$RELEASE_TARGET"
+          python3 scripts/prepare-macos-sidecar.py --node "$(command -v node)"
+          # Seal nested native dependencies before Tauri signs the outer app.
+          find apps/picsharp-app/src-tauri/resources/sidecar -type f \( -name '*.node' -o -name '*.dylib' -o -name node \) -exec codesign --force --sign - {} \;
+      - name: Build signed updater bundles and installers
         working-directory: apps/picsharp-app
-
-      - uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          NODE_OPTIONS: '--max-old-space-size=8192'
-          PICSHARP_SENTRY_DSN: ${{ secrets.PICSHARP_SENTRY_DSN }}
-          PICSHARP_SIDECAR_SENTRY_DSN: ${{ secrets.PICSHARP_SIDECAR_SENTRY_DSN }}
-          PICSHARP_ABE_KEY: ${{ secrets.PICSHARP_ABE_KEY }}
-        with:
-          projectPath: apps/picsharp-app
-          tagName: v__VERSION__
-          releaseName: 'PicSharp v__VERSION__'
-          releaseBody: ${{ needs.get-release.outputs.release_note }}
-          args: ${{ matrix.config.args || '' }}
-
-      - name: upload release notes to GitHub release
+        run: pnpm exec tauri build --ci --target ${{ matrix.target }} --bundles app,dmg --config src-tauri/tauri.macos.release.conf.json
+      - name: Verify app and collect release files
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TARGET: ${{ matrix.target }}
+          RELEASE_ARCH: ${{ matrix.arch }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          echo "Uploading release notes to GitHub release"
-          gh release upload v${{ needs.get-release.outputs.release_version }} apps/picsharp-app/release-notes.json --clobber
+          bundle="target/$RELEASE_TARGET/release/bundle"
+          codesign --verify --deep --strict "$bundle/macos/PicSharp.app"
+          python3 scripts/collect-macos-release.py "$bundle" release-assets "$RELEASE_VERSION" "$RELEASE_ARCH"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: macos-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify signatures and generate complete update manifest
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y minisign
+          python3 scripts/create-updater-manifest.py release-assets "$RELEASE_VERSION"
+          python3 scripts/release-metadata.py --notes release-notes.md
+      - name: Upload to a draft release
+        run: |
+          if ! gh release view "v$RELEASE_VERSION" --json isDraft > release-state.json; then
+            gh release create "v$RELEASE_VERSION" --draft --target "$GITHUB_SHA" --title "PicSharp-Lazy v$RELEASE_VERSION" --notes-file release-notes.md
+          else
+            python3 -c 'import json; assert json.load(open("release-state.json"))["isDraft"], "Refusing to replace a published release"'
+          fi
+          gh release upload "v$RELEASE_VERSION" release-assets/* --clobber
+      - name: Read back uploaded files and verify again
+        run: |
+          gh release download "v$RELEASE_VERSION" --dir readback
+          cp readback/latest.json uploaded-latest.json
+          python3 scripts/create-updater-manifest.py readback "$RELEASE_VERSION"
+          cmp uploaded-latest.json readback/latest.json
+      - name: Publish only after both architectures pass
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        run: gh release edit "v$RELEASE_VERSION" --draft=false --latest
+      - name: Report release
+        run: |
+          echo "Release: https://github.com/$GITHUB_REPOSITORY/releases/tag/v$RELEASE_VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Manual runs leave a draft. Version tags publish after both Mac builds and signature readback pass.' >> "$GITHUB_STEP_SUMMARY"

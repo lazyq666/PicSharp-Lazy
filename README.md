@@ -1,3 +1,5 @@
+> PicSharp-Lazy fork: [自动更新与 Mac 发布说明](doc/auto-update-release.md)。更新仅来自 `lazyq666/PicSharp-Lazy`；Mac 发布包要求 macOS 26。
+
 <!-- <div align="center">
   <a href="" target="_blank">
     <img src="./doc/logo.png" alt="PicSharp Logo" width="20%" />

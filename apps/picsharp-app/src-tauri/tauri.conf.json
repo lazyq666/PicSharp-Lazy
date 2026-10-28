@@ -29,7 +29,7 @@
     "targets": "all",
     "category": "Productivity",
     "copyright": "Copyright (c) AkiraBit 2025. All rights reserved.",
-    "homepage": "https://github.com/AkiraBit/PicSharp",
+    "homepage": "https://github.com/lazyq666/PicSharp-Lazy",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -122,9 +122,9 @@
       }
     },
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU0Nzg5NjY2MDRFOTlCNjQKUldSa20ra0VacFo0VkswUU1WaE45WFFzN3YvYXFZMkQ4c0xVdHZJaVhMNFZmNHd1MHIrUjNQMHgK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2NEI0MjMxMkMwODNGMUUKUldRZVB3Z3NNVUpMWmxaSkgrRS9idld1L2JXUzRqclZCRVFvSTNtbG5KUmxqODZpMitCM01aWVUK",
       "endpoints": [
-        "https://github.com/AkiraBit/PicSharp/releases/latest/download/latest.json"
+        "https://github.com/lazyq666/PicSharp-Lazy/releases/latest/download/latest.json"
       ]
     },
     "fs": {

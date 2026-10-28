@@ -36,6 +36,7 @@ Entitlements*.plist
 
 # local confs
 tauri.*.conf.json
+!src-tauri/tauri.macos.release.conf.json
 !src-tauri/tauri.macos.local.conf.json
 
 # vercel
