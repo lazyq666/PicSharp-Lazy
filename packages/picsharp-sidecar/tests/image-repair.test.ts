@@ -60,7 +60,7 @@ const payload = (path: string, temp: string, version: string | undefined) => ({
   },
   process_options: { palette: true, quality: 80 },
 });
-test('WATCH-001 moved outputs stay protected; independent copies and new export remain inputs', async () => {
+test('WATCH-001 moved outputs and watched copies stay protected; new exports remain inputs', async () => {
   const f = await fixture();
   try {
     const source = join(f.watched, 'a.png');
@@ -71,6 +71,7 @@ test('WATCH-001 moved outputs stay protected; independent copies and new export 
     const copy = join(f.watched, 'copy.png');
     await copyFile(moved, copy);
     assert.equal(await f.records.status(copy), 'input');
+    assert.equal(await f.records.watchStatus(copy), 'output');
     await writeFile(moved, 'V2');
     assert.equal(await f.records.status(moved), 'input');
   } finally {
@@ -321,6 +322,7 @@ test('WATCH-001 moved output wins identity lookup over an older record at its ne
     const copy = join(f.watched, 'independent.png');
     await copyFile(b, copy);
     assert.equal(await f.records.status(copy), 'input');
+    assert.equal(await f.records.watchStatus(copy), 'output');
     await writeFile(b, 'V2');
     assert.equal(await f.records.status(b), 'input');
   } finally {

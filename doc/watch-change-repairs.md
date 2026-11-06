@@ -6,7 +6,7 @@
 
 | 编号 | 当前行为 | 主要回归 |
 | --- | --- | --- |
-| WATCH-001 | 已登记成品改名或同卷移动后继续识别；独立复制和真正新稿仍可处理。 | [成品与发布](../packages/picsharp-sidecar/tests/image-repair.test.ts)、[旧记录迁移](../packages/picsharp-sidecar/tests/image-legacy-records.test.ts) |
+| WATCH-001 | 已登记成品改名或同卷移动后继续识别；2026-11-04 起，自动监听也跳过内容一致的成品副本，真正新稿与手动压缩仍可处理。 | [成品与发布](../packages/picsharp-sidecar/tests/image-repair.test.ts)、[旧记录迁移](../packages/picsharp-sidecar/tests/image-legacy-records.test.ts) |
 | WATCH-002 | `*.png`、`**/draft/**` 等忽略规则生效，字面路径规则保持兼容。 | [忽略与故障](../packages/picsharp-sidecar/tests/watch-ignore-fault.test.ts) |
 | WATCH-003 | 局部目录不可访问时显示具体路径警告，健康邻居继续处理。 | [服务流](../packages/picsharp-sidecar/tests/watch-ignore-fault.test.ts)、[界面警告](../apps/picsharp-app/tests/watch-fault.test.mjs) |
 | WATCH-005 | 最后保存间隙重新导出的新稿受到保护；发布不替换后来占名的对象。 | [精确发布窗口](../packages/picsharp-sidecar/tests/image-repair.test.ts) |
@@ -47,8 +47,12 @@ cargo test -p PicSharp --lib video::tests -- --include-ignored
 ## 保留边界
 
 - **WATCH-004** 普通同名输出策略仍待产品决定；**WATCH-007** 是历史内部心跳观察，未作为已确认用户缺陷处理。
-- 旧记录在首次核验前已经搬走时，无法可靠反推文件身份，保守作为输入。已完成身份迁移的成品才适用改名保护。
+- 2026-11-04 起，带内容指纹的旧成品记录会补建副本索引，即使原路径已搬走也可按内容识别；不含指纹且原对象无法核验的旧记录仍保守作为输入。
 - 极窄目录移动窗口中，实际文件和发布位置可保持安全，但结果返回阶段仍可能读取旧名义路径，出现 ENOENT 或旧卡路径失效；没有声称卡片路径迁移全部解决。
 - 既有死进程或过期 `.pending` 标记可能在新发布建立标记时造成 EEXIST，此恢复边界未扩展修复。
 - 图片目录锚点需要支持 `node -e` 的独立运行时及硬链接等文件系统能力。当前 macOS 独立 Node 运行时已验；pkg/SEA 分发入口、其他平台和不支持硬链接的文件系统未验。
 - 外部程序持有旧文件描述符并在最后核对后继续写入，是更宽的并发模型；本轮保护覆盖按路径重导和受控保存/Undo 窗口。Windows/Linux、物理外置盘、SMB/云同步、整机睡眠、付费压缩及长期负载没有执行。
+
+## 2026-11-04：自动跳过成品副本
+
+新增的自动监听规则、手动压缩边界、回归结果和批量性能见 [成品副本识别](watch-copy-deduplication.md)。上文 2026-10-27 的设备验收是历史结果，不代表这次源码变更已安装到桌面应用。

@@ -48,6 +48,7 @@ async function fixture() {
   const legacy = { path: current.path, version: current.version, fingerprint: current.fingerprint };
   await writeFile(recordPath, JSON.stringify(legacy));
   await rm(join(records.directory, 'identities'), { recursive: true, force: true });
+  await rm(join(records.directory, 'content-v1'), { recursive: true, force: true });
   assert.equal('identity' in JSON.parse(await readFile(recordPath, 'utf8')), false);
   return {
     root,
@@ -98,11 +99,12 @@ test('WATCH-001 legacy upgrade: real watch baseline sees the old path, then pure
     assert.equal(await f.records.status(moved), 'output');
     const independent = join(f.watched, 'independent.png');
     await copyFile(moved, independent);
-    await until(() => delivered.some((event) => event.fullPath === independent));
+    await sleep(600);
+    assert.deepEqual(delivered, [], 'automatic watch skips byte-identical copies');
     assert.equal(
       await f.records.status(independent),
-      'input',
-      'same bytes at an independent inode remain a new original',
+      'output',
+      'the watcher registers a byte-identical copy as an output',
     );
     await writeFile(moved, f.next);
     await until(() => delivered.some((event) => event.fullPath === moved));
@@ -118,7 +120,7 @@ test('WATCH-001 legacy upgrade: real watch baseline sees the old path, then pure
   }
 });
 
-test('legacy exact-path check keeps old output protection and does not globally suppress byte-identical copies or V2', async () => {
+test('legacy object lookup and watch copy recognition both preserve changed-input eligibility', async () => {
   const f = await fixture();
   try {
     assert.equal(await f.records.status(f.path), 'output');
@@ -129,6 +131,7 @@ test('legacy exact-path check keeps old output protection and does not globally 
       (await stat(independent, { bigint: true })).ino,
     );
     assert.equal(await f.records.status(independent), 'input');
+    assert.equal(await f.records.watchStatus(independent), 'output');
     const moved = join(f.watched, 'renamed-after-check.png');
     await rename(f.path, moved);
     assert.equal(
@@ -143,7 +146,7 @@ test('legacy exact-path check keeps old output protection and does not globally 
   }
 });
 
-test('legacy first encounter after an earlier rename records its migration boundary without global content dedupe', async (t) => {
+test('legacy fingerprints recognize moved outputs and copies before any identity migration', async (t) => {
   const f = await fixture();
   try {
     const before = await stat(f.path, { bigint: true });
@@ -152,7 +155,8 @@ test('legacy first encounter after an earlier rename records its migration bound
     const after = await stat(moved, { bigint: true });
     assert.equal(after.dev, before.dev);
     assert.equal(after.ino, before.ino);
-    const migratedStatus = await f.records.status(moved);
+    const migratedStatus = await f.records.watchStatus(moved);
+    assert.equal(migratedStatus, 'output');
     t.diagnostic(
       JSON.stringify({
         scenario: 'old path absent before any upgraded validation',
@@ -165,9 +169,9 @@ test('legacy first encounter after an earlier rename records its migration bound
     const independent = join(f.watched, 'same-bytes-copy.png');
     await copyFile(moved, independent);
     assert.equal(
-      await f.records.status(independent),
-      'input',
-      'a migration must not turn all matching bytes into known outputs',
+      await f.records.watchStatus(independent),
+      'output',
+      'a migrated completed fingerprint also protects independent copies',
     );
     await writeFile(moved, f.next);
     assert.equal(await f.records.status(moved), 'input');

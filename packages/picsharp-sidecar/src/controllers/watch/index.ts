@@ -26,7 +26,7 @@ app.post('/filter-inputs', async (c) => {
       // metadata candidate, while rejecting queued versions of changed inputs.
       if (version !== candidate.version &&
           version.split(':').slice(0, 4).join(':') !== candidate.version.split(':').slice(0, 4).join(':')) continue;
-      const eligible = isVideo(candidate.path) || await outputs.status(candidate.path, version) === 'input';
+      const eligible = isVideo(candidate.path) || await outputs.watchStatus(candidate.path, version) === 'input';
       if (eligible && await readFileVersion(candidate.path) === version) inputs.push({...candidate, version});
     } catch (error: any) {
       issues.push({path:candidate.path,message:error.message,code:'output_record_unreadable'});

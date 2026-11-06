@@ -51,7 +51,7 @@ export async function undoImage(
       // Reuse the directory anchored by claim. If Finder moves that directory,
       // restoring by its old absolute pathname could write into a different one.
       // The anchored publication also refuses a new export occupying the name.
-      await claimed[0].publish((temporary) => copyFile(input.originalTempPath, temporary));
+      await claimed[0].publish((temporary) => copyFile(input.originalTempPath, temporary), false);
     }
     for (const item of claimed) await item.discard();
     return { success: true, message: 'undo.success' };

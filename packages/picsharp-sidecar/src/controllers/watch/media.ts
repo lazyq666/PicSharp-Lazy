@@ -42,7 +42,7 @@ export interface Payload {
 }
 
 // Coalesce writes using metadata. Images settle for 500 ms, videos for 3 s.
-// Only changed, previously marked image outputs need a content fingerprint check.
+// Known outputs use metadata; possible copies also receive a bounded content check.
 // Output protection is checked here and again immediately before queued work runs.
 export function createMediaEvents(
   emit: (payload: Payload) => void,
@@ -83,7 +83,7 @@ export function createMediaEvents(
         entry.signature = signature;
         entry.since = Date.now();
       } else if (Date.now() - entry.since >= (isVideo(path) ? stableMs : Math.min(stableMs, 500))) {
-        const status = isVideo(path) ? 'input' : await outputs.status(path, signature);
+        const status = isVideo(path) ? 'input' : await outputs.watchStatus(path, signature);
         if (closed || waiting.get(path) !== entry) return;
         const latest = await stat(path, { bigint: true });
         if (closed || waiting.get(path) !== entry) return;

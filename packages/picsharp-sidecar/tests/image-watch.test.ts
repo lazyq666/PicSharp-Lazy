@@ -154,7 +154,7 @@ test('legacy output markers never assume changed bytes are already compressed', 
   const path = join(f.folder, 'output.png');
   try {
     await f.records.publish(path, (temporary) => writeFile(temporary, 'AAAA'));
-    const [filename] = await readdir(f.records.directory);
+    const [filename] = (await readdir(f.records.directory)).filter(name => name.endsWith('.json'));
     const recordPath = join(f.records.directory, filename);
     const legacy = JSON.parse(await readFile(recordPath, 'utf8'));
     delete legacy.fingerprint;

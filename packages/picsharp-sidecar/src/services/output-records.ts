@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rename, rm, writeFile, stat, link } from 'nod
 import { homedir, tmpdir } from 'node:os';
 import { dirname, extname, join } from 'node:path';
 import { canonicalPath, readFileFingerprint, readFileVersion } from './file-version';
+import { OutputContentIndex, withCopyCheck } from './output-content-index';
 import { DirectoryAnchor, AnchoredSnapshot } from './directory-anchor';
 
 export interface FileCandidate {
@@ -19,6 +20,7 @@ export class WatchInputChanged extends Error {
 interface OutputRecord extends FileCandidate {
   fingerprint?: string;
   identity?: string;
+  copyEligible?: boolean;
 }
 interface PendingRecord {
   path: string;
@@ -35,7 +37,10 @@ const sameObject = (a: string, b: string) =>
   a.split(':').slice(0, 4).join(':') === b.split(':').slice(0, 4).join(':');
 
 export class OutputRecords {
-  constructor(readonly directory: string) {}
+  private readonly content: OutputContentIndex;
+  constructor(readonly directory: string) {
+    this.content = new OutputContentIndex(directory);
+  }
   private recordPath(path: string) {
     return join(this.directory, hash(pathKey(path)) + '.json');
   }
@@ -129,27 +134,60 @@ export class OutputRecords {
       await this.remember(key, { version: current, fingerprint: stored.fingerprint });
     return 'output';
   }
+  // Copy suppression is only used by automatic watch paths. Manual compression
+  // does not supply watch_version and bypasses this eligibility check entirely.
+  async watchStatus(path: string, version?: string): Promise<'input' | 'output' | 'writing'> {
+    const current = version ?? (await readFileVersion(path));
+    if (!current) return 'input';
+    const status = await this.status(path, current);
+    if (status !== 'input' || !(await this.content.hasSize(current))) return status;
+    return withCopyCheck(async () => {
+      const key = pathKey(await canonicalPath(path));
+      const snapshot = await readFileFingerprint(key, current);
+      if (!snapshot) return 'writing';
+      if (!(await this.content.matches(snapshot))) return 'input';
+      try {
+        await this.storeSnapshot(key, snapshot);
+      } catch (error) {
+        if (isWatchInputChanged(error)) return 'writing';
+        throw error;
+      }
+      return 'output';
+    });
+  }
   async isInput(candidate: FileCandidate): Promise<boolean> {
     const current = await readFileVersion(candidate.path);
     return (
       current === candidate.version &&
-      (await this.status(candidate.path, current)) === 'input' &&
+      (await this.watchStatus(candidate.path, current)) === 'input' &&
       (await readFileVersion(candidate.path)) === candidate.version
     );
   }
   async remember(
     path: string,
-    expected?: { version?: string; fingerprint?: string; snapshot?: AnchoredSnapshot },
+    expected?: {
+      version?: string;
+      fingerprint?: string;
+      snapshot?: AnchoredSnapshot;
+      copyEligible?: boolean;
+    },
   ): Promise<string> {
     const key = pathKey(await canonicalPath(path));
     const snapshot = expected?.snapshot ?? (await readFileFingerprint(key, expected?.version));
     if (!snapshot || (expected?.fingerprint && snapshot.fingerprint !== expected.fingerprint))
       throw new WatchInputChanged();
-    const identity = expected?.snapshot?.identity ?? stableIdentity(await stat(key));
+    return this.storeSnapshot(key, { ...snapshot, copyEligible: expected?.copyEligible });
+  }
+  private async storeSnapshot(
+    key: string,
+    snapshot: { version: string; fingerprint: string; identity?: string; copyEligible?: boolean },
+  ): Promise<string> {
+    const identity = snapshot.identity ?? stableIdentity(await stat(key));
     if ((await readFileVersion(key)) !== snapshot.version) throw new WatchInputChanged();
     const record: OutputRecord = { ...snapshot, path: key, identity };
     await this.store(this.recordPath(key), record);
     await this.store(this.identityPath(identity), record);
+    await this.content.add(record);
     return snapshot.version;
   }
   // Move the actual object out of its pathname before validating/removing it.
@@ -202,11 +240,11 @@ export class OutputRecords {
         path: held,
         anchor,
         restore,
-        publish: async <T>(render: (temporary: string) => Promise<T>) => {
+        publish: async <T>(render: (temporary: string) => Promise<T>, copyEligible = true) => {
           const temporary = join(work, 'restored-' + randomUUID() + extname(key));
           try {
             const result = await render(temporary);
-            const outputVersion = await this.publishAnchored(anchor, temporary);
+            const outputVersion = await this.publishAnchored(anchor, temporary, copyEligible);
             return { result, outputVersion };
           } finally {
             await rm(temporary, { force: true });
@@ -235,7 +273,11 @@ export class OutputRecords {
       throw error;
     }
   }
-  private async publishAnchored(anchor: DirectoryAnchor, temporary: string): Promise<string> {
+  private async publishAnchored(
+    anchor: DirectoryAnchor,
+    temporary: string,
+    copyEligible = true,
+  ): Promise<string> {
     const rendered = await readFileFingerprint(temporary);
     if (!rendered) throw new WatchInputChanged();
     const identity = stableIdentity(await stat(temporary));
@@ -261,6 +303,7 @@ export class OutputRecords {
       return await this.remember(published.path, {
         fingerprint: rendered.fingerprint,
         snapshot: published,
+        copyEligible,
       });
     } finally {
       await rm(pending, { force: true });

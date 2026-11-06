@@ -1,0 +1,166 @@
+TAP version 13
+# Subtest: WATCH-001 legacy upgrade: real watch baseline sees the old path, then pure rename must skip
+ok 1 - WATCH-001 legacy upgrade: real watch baseline sees the old path, then pure rename must skip
+  ---
+  duration_ms: 2011.606
+  type: 'test'
+  ...
+# Subtest: legacy object lookup and watch copy recognition both preserve changed-input eligibility
+ok 2 - legacy object lookup and watch copy recognition both preserve changed-input eligibility
+  ---
+  duration_ms: 73.513208
+  type: 'test'
+  ...
+# Subtest: legacy fingerprints recognize moved outputs and copies before any identity migration
+ok 3 - legacy fingerprints recognize moved outputs and copies before any identity migration
+  ---
+  duration_ms: 62.819375
+  type: 'test'
+  ...
+# {"scenario":"old path absent before any upgraded validation","legacyRecord":{"path":"/private/var/folders/_c/rrvl8_rd3fn74f1yrn4c47rh0000gn/T/picsharp-legacy-output-aEmSyD/watched/finished.png","version":"16777230:269869099:237:1793783633429441948:1793783633478490037","fingerprint":"sha256:647df98d22ad176d1a4d3e3e905c807beef179d9a572f34b304b33be26d601e1"},"newPathVersion":"16777230:269869099:237:1793783633429441948:1793783633485389544","observedStatus":"output","samePhysicalObject":true}
+# Subtest: WATCH-001 moved outputs and watched copies stay protected; new exports remain inputs
+ok 4 - WATCH-001 moved outputs and watched copies stay protected; new exports remain inputs
+  ---
+  duration_ms: 67.469625
+  type: 'test'
+  ...
+# Subtest: WATCH-005 new export in the final anchored publication syscall window survives
+ok 5 - WATCH-005 new export in the final anchored publication syscall window survives
+  ---
+  duration_ms: 65.192958
+  type: 'test'
+  ...
+# Subtest: WATCH-008 bad record isolates its candidate and returns a diagnostic with healthy input
+ok 6 - WATCH-008 bad record isolates its candidate and returns a diagnostic with healthy input
+  ---
+  duration_ms: 77.449416
+  type: 'test'
+  ...
+# Subtest: WATCH-011 valid 1022-byte source path does not grow for internal files
+ok 7 - WATCH-011 valid 1022-byte source path does not grow for internal files
+  ---
+  duration_ms: 67.968625
+  type: 'test'
+  ...
+# Subtest: WATCH-012 stale hardlink metadata refreshes to an eligible current candidate
+ok 8 - WATCH-012 stale hardlink metadata refreshes to an eligible current candidate
+  ---
+  duration_ms: 63.676208
+  type: 'test'
+  ...
+# {"case":"WATCH-005","seam":"claim","iteration":1,"injected":1,"V2Preserved":true,"scope":"last version check completed; injection immediately before actual directory-anchor syscall request"}
+# Subtest: WATCH-005 anchored claim final syscall request window 1
+ok 9 - WATCH-005 anchored claim final syscall request window 1
+  ---
+  duration_ms: 57.855083
+  type: 'test'
+  ...
+# {"case":"WATCH-005","seam":"claim","iteration":2,"injected":1,"V2Preserved":true,"scope":"last version check completed; injection immediately before actual directory-anchor syscall request"}
+# Subtest: WATCH-005 anchored claim final syscall request window 2
+ok 10 - WATCH-005 anchored claim final syscall request window 2
+  ---
+  duration_ms: 57.212292
+  type: 'test'
+  ...
+# {"case":"WATCH-005","seam":"claim","iteration":3,"injected":1,"V2Preserved":true,"scope":"last version check completed; injection immediately before actual directory-anchor syscall request"}
+# Subtest: WATCH-005 anchored claim final syscall request window 3
+ok 11 - WATCH-005 anchored claim final syscall request window 3
+  ---
+  duration_ms: 59.337291
+  type: 'test'
+  ...
+# {"case":"WATCH-005","seam":"publish","iteration":1,"injected":1,"V2Preserved":true,"scope":"last version check completed; injection immediately before actual directory-anchor syscall request"}
+# Subtest: WATCH-005 anchored publish final syscall request window 1
+ok 12 - WATCH-005 anchored publish final syscall request window 1
+  ---
+  duration_ms: 62.779292
+  type: 'test'
+  ...
+# {"case":"WATCH-005","seam":"publish","iteration":2,"injected":1,"V2Preserved":true,"scope":"last version check completed; injection immediately before actual directory-anchor syscall request"}
+# Subtest: WATCH-005 anchored publish final syscall request window 2
+ok 13 - WATCH-005 anchored publish final syscall request window 2
+  ---
+  duration_ms: 73.5555
+  type: 'test'
+  ...
+# {"case":"WATCH-005","seam":"publish","iteration":3,"injected":1,"V2Preserved":true,"scope":"last version check completed; injection immediately before actual directory-anchor syscall request"}
+# Subtest: WATCH-005 anchored publish final syscall request window 3
+ok 14 - WATCH-005 anchored publish final syscall request window 3
+  ---
+  duration_ms: 61.163583
+  type: 'test'
+  ...
+# Subtest: WATCH-006 image work stays outside a moved source parent and is removed
+ok 15 - WATCH-006 image work stays outside a moved source parent and is removed
+  ---
+  duration_ms: 5.179083
+  type: 'test'
+  ...
+# {"case":"WATCH-012","iteration":1,"staleRejected":true,"replacementDelivered":true,"bothProcessed":true}
+# Subtest: WATCH-012 production resampler supplies and processes the hardlink replacement candidate 1
+ok 16 - WATCH-012 production resampler supplies and processes the hardlink replacement candidate 1
+  ---
+  duration_ms: 891.706125
+  type: 'test'
+  ...
+# {"case":"WATCH-012","iteration":2,"staleRejected":true,"replacementDelivered":true,"bothProcessed":true}
+# Subtest: WATCH-012 production resampler supplies and processes the hardlink replacement candidate 2
+ok 17 - WATCH-012 production resampler supplies and processes the hardlink replacement candidate 2
+  ---
+  duration_ms: 890.974
+  type: 'test'
+  ...
+# {"case":"WATCH-012","iteration":3,"staleRejected":true,"replacementDelivered":true,"bothProcessed":true}
+# Subtest: WATCH-012 production resampler supplies and processes the hardlink replacement candidate 3
+ok 18 - WATCH-012 production resampler supplies and processes the hardlink replacement candidate 3
+  ---
+  duration_ms: 883.674333
+  type: 'test'
+  ...
+# Subtest: WATCH-001 moved output wins identity lookup over an older record at its new pathname
+ok 19 - WATCH-001 moved output wins identity lookup over an older record at its new pathname
+  ---
+  duration_ms: 122.427458
+  type: 'test'
+  ...
+# {"case":"WATCH-006","recreate":false,"injected":1,"movedSourceValid":true,"newNamespaceUnmodified":true}
+# Subtest: WATCH-006 moved parent after actual claim remains addressed by anchored directory; recreate=false
+ok 20 - WATCH-006 moved parent after actual claim remains addressed by anchored directory; recreate=false
+  ---
+  duration_ms: 64.070042
+  type: 'test'
+  ...
+# {"case":"WATCH-006","recreate":true,"injected":1,"movedSourceValid":true,"newNamespaceUnmodified":true}
+# Subtest: WATCH-006 moved parent after actual claim remains addressed by anchored directory; recreate=true
+ok 21 - WATCH-006 moved parent after actual claim remains addressed by anchored directory; recreate=true
+  ---
+  duration_ms: 61.853291
+  type: 'test'
+  ...
+# Subtest: directory anchor closes after rollback conflict and retains a real recovery file
+ok 22 - directory anchor closes after rollback conflict and retains a real recovery file
+  ---
+  duration_ms: 59.959417
+  type: 'test'
+  ...
+# Subtest: directory anchor restores the original on owner EOF after a source-directory move
+ok 23 - directory anchor restores the original on owner EOF after a source-directory move
+  ---
+  duration_ms: 137.808458
+  type: 'test'
+  ...
+# Subtest: directory anchor accepts leading-dash filenames as data
+ok 24 - directory anchor accepts leading-dash filenames as data
+  ---
+  duration_ms: 60.949875
+  type: 'test'
+  ...
+1..24
+# tests 24
+# suites 0
+# pass 24
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6867.970916
